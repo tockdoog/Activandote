@@ -1,12 +1,33 @@
 #!/bin/bash
+
+ERRORS=0
+WARNINGS=0
+
+clear
+
+echo "======================================================"
+echo "      FITPRO | VERIFICACIÓN DEL SISTEMA"
+echo "======================================================"
+
+# -----------------------------------------------
+# Verificar Docker
+# -----------------------------------------------
+echo
+echo "[1/5] Verificando Docker..."
+
+if command -v docker &> /dev/null; then
+    docker --version
     echo "Docker instalado ✔"
+else
+    echo "[ERROR] Docker no encontrado"
+    ((ERRORS++))
 fi
 
 # -----------------------------------------------
 # Verificar Docker Engine
 # -----------------------------------------------
 echo
-echo "[3/5] Verificando Docker Engine..."
+echo "[2/5] Verificando Docker Engine..."
 
 if ! docker ps &> /dev/null; then
     echo "[ERROR] Docker Desktop no está ejecutándose"
@@ -19,7 +40,7 @@ fi
 # Verificar Docker Compose
 # -----------------------------------------------
 echo
-echo "[4/5] Verificando Docker Compose..."
+echo "[3/5] Verificando Docker Compose..."
 
 if docker compose version &> /dev/null; then
     docker compose version
@@ -36,7 +57,7 @@ fi
 # Verificar docker-compose.yml
 # -----------------------------------------------
 echo
-echo "[5/5] Verificando archivos del proyecto..."
+echo "[4/5] Verificando archivos del proyecto..."
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
