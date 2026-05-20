@@ -3,8 +3,7 @@
 // alertas recientes y modal QR para acceso en red local.
 
 // -----------------------------------------------
-// Verificación de autenticación al cargar la página.
-// Si no hay token en localStorage, redirigir al login.
+// Verificación de autenticación al cargar la página
 // -----------------------------------------------
 (function verificarAuth() {
   if (!api.estaAutenticado()) {
@@ -12,28 +11,24 @@
   }
 })();
 
-// Variables globales para instancias de Chart.js — evitan el error
-// "Canvas already in use" al recargar datos sin recargar la página
+// Variables globales para instancias de Chart.js
 let graficaEvoluciones  = null;
 let graficaTopPacientes = null;
 
 // Variable global para la URL de red — usada por copiarURLRed()
 let _urlRedLocal = '';
 
-// Instancia global del modal QR de Bootstrap — reutilizada en cada apertura
+// Instancia global del modal QR de Bootstrap
 let _modalQRInstancia = null;
 
 // -----------------------------------------------
-// INICIALIZACIÓN DEL DASHBOARD AL CARGAR LA PÁGINA
+// INICIALIZACIÓN DEL DASHBOARD
 // -----------------------------------------------
 document.addEventListener('DOMContentLoaded', async function () {
-  // Mostrar datos del entrenador autenticado en el sidebar
   inicializarUsuario();
-
-  // Mostrar fecha de hoy en el bloque hero del dashboard
   mostrarFechaHoy();
 
-  // Cargar todos los datos en paralelo para reducir el tiempo total de carga
+  // Cargar todos los datos en paralelo para reducir tiempo de carga
   await Promise.all([
     cargarEstadisticas(),
     cargarGraficaEvoluciones(),
@@ -54,13 +49,8 @@ function inicializarUsuario() {
   const usuario = api.getUsuario();
   if (!usuario) return;
 
-  // Extraer las dos primeras iniciales del nombre completo para el avatar
   const iniciales = usuario.nombre_completo
-    .split(' ')
-    .slice(0, 2)
-    .map(n => n[0])
-    .join('')
-    .toUpperCase();
+    .split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 
   const avatarEl = document.getElementById('user-avatar');
   const nameEl   = document.getElementById('user-name');
@@ -70,26 +60,22 @@ function inicializarUsuario() {
   if (nameEl)   nameEl.textContent   = usuario.nombre_completo;
   if (planEl)   planEl.textContent   = `Plan ${usuario.plan.toUpperCase()}`;
 
-  // Saludo personalizado con el primer nombre en el hero del dashboard
+  // Saludo personalizado con el primer nombre
   const saludoEl = document.getElementById('saludo-nombre');
-  if (saludoEl) {
-    saludoEl.textContent = usuario.nombre_completo.split(' ')[0];
-  }
+  if (saludoEl) saludoEl.textContent = usuario.nombre_completo.split(' ')[0];
 }
 
 /**
- * Muestra la fecha actual en el bloque hero del dashboard.
- * Formato: número del día grande + texto completo en español.
+ * Muestra la fecha actual en el hero del dashboard.
+ * Número del día en grande + texto completo en español.
  */
 function mostrarFechaHoy() {
   const hoy   = new Date();
   const diaEl = document.getElementById('fecha-dia');
   const hoyEl = document.getElementById('fecha-hoy');
 
-  // Número del día en fuente grande (elemento decorativo)
   if (diaEl) diaEl.textContent = hoy.getDate();
 
-  // Texto completo: "martes, 15 de octubre de 2024"
   if (hoyEl) {
     const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     hoyEl.textContent = hoy.toLocaleDateString('es-CO', opciones);
@@ -101,21 +87,21 @@ function mostrarFechaHoy() {
 // -----------------------------------------------
 
 /**
- * Obtiene las métricas del backend y actualiza las tarjetas del dashboard.
- * Activa el badge rojo de alerta en el topbar si hay pacientes críticos.
+ * Obtiene las métricas del backend y actualiza las tarjetas.
+ * Activa el badge de alerta si hay pacientes críticos.
  */
 async function cargarEstadisticas() {
   try {
     const stats = await api.obtenerEstadisticas();
 
-    // Actualizar cada tarjeta stat con animación de contador ascendente
+    // Actualizar cada tarjeta con animación de contador ascendente
     actualizarStatConAnimacion('stat-total-pacientes',    stats.total_pacientes);
     actualizarStatConAnimacion('stat-pacientes-activos',  stats.pacientes_activos);
     actualizarStatConAnimacion('stat-total-evaluaciones', stats.total_evaluaciones);
     actualizarStatConAnimacion('stat-eval-mes',           stats.evaluaciones_este_mes);
     actualizarStatConAnimacion('stat-con-alerta',         stats.pacientes_con_alerta);
 
-    // IMC promedio con un decimal — mostrar guión si no hay datos
+    // IMC promedio con un decimal
     const imcEl = document.getElementById('stat-imc');
     if (imcEl) {
       imcEl.textContent = stats.promedio_imc
@@ -123,7 +109,7 @@ async function cargarEstadisticas() {
         : '—';
     }
 
-    // Mostrar badge rojo en el botón de alertas del topbar si hay alertas activas
+    // Badge rojo si hay alertas activas
     if (stats.pacientes_con_alerta > 0) {
       const badge = document.getElementById('badge-alertas');
       if (badge) badge.style.display = 'block';
@@ -137,7 +123,7 @@ async function cargarEstadisticas() {
 
 /**
  * Anima el contador de una tarjeta stat desde 0 hasta el valor final.
- * Usa requestAnimationFrame con easing ease-out cúbico durante 600ms.
+ * Easing ease-out cúbico durante 600ms con requestAnimationFrame.
  */
 function actualizarStatConAnimacion(elementId, valorFinal) {
   const el = document.getElementById(elementId);
@@ -150,10 +136,8 @@ function actualizarStatConAnimacion(elementId, valorFinal) {
   function animar(ahora) {
     const transcurrido = ahora - inicio;
     const progreso     = Math.min(transcurrido / duracion, 1);
-    // Easing ease-out cúbico: rápido al inicio, suave al final
     const ease         = 1 - Math.pow(1 - progreso, 3);
     el.textContent     = Math.round(valorNum * ease);
-
     if (progreso < 1) requestAnimationFrame(animar);
   }
 
@@ -161,12 +145,12 @@ function actualizarStatConAnimacion(elementId, valorFinal) {
 }
 
 // -----------------------------------------------
-// GRÁFICA DE EVOLUCIÓN MENSUAL (Chart.js — Barras verticales)
+// GRÁFICA DE EVOLUCIÓN MENSUAL — Paleta verde
 // -----------------------------------------------
 
 /**
- * Carga evaluaciones agrupadas por mes (últimos 12 meses) y renderiza
- * una gráfica de barras verticales con paleta rojo/negro.
+ * Carga evaluaciones por mes (últimos 12 meses) y renderiza barras verdes.
+ * Tooltips con fondo blanco y texto oscuro para legibilidad.
  */
 async function cargarGraficaEvoluciones() {
   try {
@@ -177,7 +161,6 @@ async function cargarGraficaEvoluciones() {
     const canvas = document.getElementById('grafica-evoluciones');
     if (!canvas) return;
 
-    // Destruir instancia anterior para evitar el error "Canvas already in use"
     if (graficaEvoluciones) graficaEvoluciones.destroy();
 
     graficaEvoluciones = new Chart(canvas, {
@@ -185,10 +168,10 @@ async function cargarGraficaEvoluciones() {
       data: {
         labels: periodos,
         datasets: [{
-          label: 'Evaluaciones',
-          data: totales,
-          backgroundColor: 'rgba(204, 0, 0, 0.75)',
-          borderColor:     '#CC0000',
+          label:           'Evaluaciones',
+          data:            totales,
+          backgroundColor: 'rgba(22, 163, 74, 0.78)',
+          borderColor:     '#16A34A',
           borderWidth:     1,
           borderRadius:    5,
           borderSkipped:   false
@@ -200,27 +183,28 @@ async function cargarGraficaEvoluciones() {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#1A1A1A',
-            borderColor:     '#CC0000',
+            // Fondo blanco — legible sobre el fondo claro del sistema
+            backgroundColor: '#FFFFFF',
+            borderColor:     '#DDE8DD',
             borderWidth:     1,
-            titleColor:      '#FFFFFF',
-            bodyColor:       '#CCCCCC',
+            titleColor:      '#111827',
+            bodyColor:       '#374E37',
             padding:         10
           }
         },
         scales: {
           x: {
-            ticks: { color: '#999999', font: { size: 11, family: 'Inter' } },
-            grid:  { color: 'rgba(255,255,255,0.05)' }
+            ticks: { color: '#374E37', font: { size: 11, family: 'Inter' } },
+            grid:  { color: 'rgba(0,0,0,0.04)' }
           },
           y: {
             beginAtZero: true,
             ticks: {
-              color: '#999999',
+              color:    '#374E37',
               stepSize: 1,
-              font: { size: 11, family: 'Inter' }
+              font:     { size: 11, family: 'Inter' }
             },
-            grid: { color: 'rgba(255,255,255,0.05)' }
+            grid: { color: 'rgba(0,0,0,0.06)' }
           }
         }
       }
@@ -232,18 +216,17 @@ async function cargarGraficaEvoluciones() {
 }
 
 // -----------------------------------------------
-// GRÁFICA TOP 5 PACIENTES (Chart.js — Barras horizontales)
+// GRÁFICA TOP 5 PACIENTES — Barras horizontales verdes
 // -----------------------------------------------
 
 /**
- * Carga los 5 pacientes con más evaluaciones y los muestra en
- * una gráfica de barras horizontal con opacidad decreciente.
+ * Carga los 5 pacientes con más evaluaciones con opacidad decreciente.
+ * Ejes con texto oscuro y legible sobre fondo blanco.
  */
 async function cargarTopPacientes() {
   try {
     const datos = await api.obtenerTopPacientes();
 
-    // Usar solo el primer nombre para que quepan en el eje Y de la gráfica
     const nombres      = datos.top_pacientes.map(p => p.nombre.split(' ')[0]);
     const evaluaciones = datos.top_pacientes.map(p => p.total_evaluaciones);
 
@@ -252,13 +235,13 @@ async function cargarTopPacientes() {
 
     if (graficaTopPacientes) graficaTopPacientes.destroy();
 
-    // Paleta roja con opacidad decreciente para efecto de ranking visual
+    // Verde con opacidad decreciente para efecto ranking
     const colores = [
-      'rgba(204, 0, 0, 0.90)',
-      'rgba(204, 0, 0, 0.70)',
-      'rgba(204, 0, 0, 0.52)',
-      'rgba(204, 0, 0, 0.35)',
-      'rgba(204, 0, 0, 0.20)'
+      'rgba(22, 163, 74, 0.90)',
+      'rgba(22, 163, 74, 0.72)',
+      'rgba(22, 163, 74, 0.55)',
+      'rgba(22, 163, 74, 0.38)',
+      'rgba(22, 163, 74, 0.22)'
     ];
 
     graficaTopPacientes = new Chart(canvas, {
@@ -266,27 +249,27 @@ async function cargarTopPacientes() {
       data: {
         labels: nombres,
         datasets: [{
-          label: 'Evaluaciones',
-          data: evaluaciones,
+          label:           'Evaluaciones',
+          data:            evaluaciones,
           backgroundColor: colores,
-          borderColor:     '#CC0000',
+          borderColor:     '#16A34A',
           borderWidth:     1,
           borderRadius:    5,
           borderSkipped:   false
         }]
       },
       options: {
-        indexAxis: 'y',  // Barras horizontales
+        indexAxis: 'y',
         responsive: true,
         animation: { duration: 800, easing: 'easeOutQuart' },
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#1A1A1A',
-            borderColor:     '#CC0000',
+            backgroundColor: '#FFFFFF',
+            borderColor:     '#DDE8DD',
             borderWidth:     1,
-            titleColor:      '#FFFFFF',
-            bodyColor:       '#CCCCCC',
+            titleColor:      '#111827',
+            bodyColor:       '#374E37',
             padding:         10
           }
         },
@@ -294,16 +277,17 @@ async function cargarTopPacientes() {
           x: {
             beginAtZero: true,
             ticks: {
-              color: '#999999',
+              color:    '#374E37',
               stepSize: 1,
-              font: { size: 11, family: 'Inter' }
+              font:     { size: 11, family: 'Inter' }
             },
-            grid: { color: 'rgba(255,255,255,0.05)' }
+            grid: { color: 'rgba(0,0,0,0.06)' }
           },
           y: {
             ticks: {
-              color: '#FFFFFF',
-              font: { size: 12, weight: '600', family: 'Inter' }
+              // Texto oscuro y legible — el fondo es blanco
+              color: '#1F3A1F',
+              font:  { size: 12, weight: '600', family: 'Inter' }
             },
             grid: { display: false }
           }
@@ -317,12 +301,12 @@ async function cargarTopPacientes() {
 }
 
 // -----------------------------------------------
-// TABLA DE ALERTAS RECIENTES
+// TABLA DE ALERTAS RECIENTES — Paleta verde/blanco
 // -----------------------------------------------
 
 /**
- * Carga las evaluaciones con alertas activas y las muestra en la tabla.
- * Cada fila incluye enlace directo al detalle del paciente.
+ * Carga evaluaciones con alertas activas y las muestra en la tabla.
+ * HTML generado con colores de la paleta verde/blanco.
  */
 async function cargarAlertasRecientes() {
   const tbody = document.getElementById('tbody-alertas');
@@ -332,13 +316,13 @@ async function cargarAlertasRecientes() {
     const datos = await api.obtenerAlertasRecientes();
 
     if (datos.alertas.length === 0) {
-      // Estado vacío positivo: todos los pacientes están dentro de rangos
       tbody.innerHTML = `
         <tr>
           <td colspan="4">
             <div class="estado-vacio" style="padding:2rem">
               <div class="estado-vacio-icono">
-                <i class="bi bi-check-circle-fill" style="color:#00CC55;font-size:2.5rem"></i>
+                <i class="bi bi-check-circle-fill"
+                   style="color:var(--verde-primario);font-size:2.5rem"></i>
               </div>
               <div class="estado-vacio-titulo">Sin alertas activas</div>
               <div class="estado-vacio-desc">
@@ -350,38 +334,60 @@ async function cargarAlertasRecientes() {
       return;
     }
 
-    // Generar una fila por cada alerta con enlace al detalle del paciente
+    // Generar filas con avatares y colores del nuevo diseño
     tbody.innerHTML = datos.alertas.map(alerta => `
       <tr>
         <td>
-          <a href="patient-detail.html?id=${alerta.patient_id}"
-             style="color:var(--blanco-puro);text-decoration:none;font-weight:600;
-                    font-size:.875rem;display:flex;align-items:center;gap:8px">
-            <div style="width:32px;height:32px;min-width:32px;border-radius:50%;
-                        background:rgba(204,0,0,0.15);border:1.5px solid rgba(204,0,0,0.3);
-                        display:flex;align-items:center;justify-content:center;
-                        font-size:.75rem;font-weight:700;color:#FF4444;
-                        font-family:var(--fuente-display)">
+          <a
+            href="patient-detail.html?id=${alerta.patient_id}"
+            style="
+              color:#111827;
+              text-decoration:none;
+              font-weight:600;
+              font-size:.875rem;
+              display:flex;
+              align-items:center;
+              gap:8px
+            "
+          >
+            <!-- Avatar con iniciales en paleta verde -->
+            <div style="
+              width:32px;height:32px;min-width:32px;
+              border-radius:50%;
+              background:var(--verde-translucido);
+              border:1.5px solid var(--verde-borde);
+              display:flex;align-items:center;justify-content:center;
+              font-size:.75rem;font-weight:700;color:#15803D;
+              font-family:var(--fuente-display)
+            ">
               ${alerta.nombre_paciente.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase()}
             </div>
             ${alerta.nombre_paciente}
           </a>
         </td>
-        <td style="color:#999999;font-size:.85rem">
-          <i class="bi bi-calendar3 me-1" style="color:#CC0000"></i>
+        <td style="color:#374E37;font-size:.85rem">
+          <i class="bi bi-calendar3 me-1" style="color:var(--verde-primario)"></i>
           ${formatearFecha(alerta.fecha)}
         </td>
         <td>
-          <span style="color:#FF9999;font-size:.82rem;font-weight:500;
-                       display:flex;align-items:flex-start;gap:5px">
+          <span style="
+            color:#991B1B;
+            font-size:.82rem;
+            font-weight:500;
+            display:flex;
+            align-items:flex-start;
+            gap:5px
+          ">
             <i class="bi bi-exclamation-triangle-fill"
                style="color:var(--rojo-alerta);flex-shrink:0;margin-top:1px"></i>
             ${alerta.detalle || 'Sin detalle'}
           </span>
         </td>
         <td>
-          <a href="patient-detail.html?id=${alerta.patient_id}"
-             class="btn btn-secundario btn-sm">
+          <a
+            href="patient-detail.html?id=${alerta.patient_id}"
+            class="btn btn-secundario btn-sm"
+          >
             <i class="bi bi-eye me-1"></i> Ver
           </a>
         </td>
@@ -392,8 +398,9 @@ async function cargarAlertasRecientes() {
     console.error('Error cargando alertas recientes:', error);
     tbody.innerHTML = `
       <tr>
-        <td colspan="4" style="text-align:center;color:#999999;padding:2rem">
-          <i class="bi bi-exclamation-triangle me-2" style="color:var(--rojo-alerta)"></i>
+        <td colspan="4" style="text-align:center;color:#516651;padding:2rem">
+          <i class="bi bi-exclamation-triangle me-2"
+             style="color:var(--rojo-alerta)"></i>
           Error al cargar alertas. Intenta recargar la página.
         </td>
       </tr>`;
@@ -409,72 +416,69 @@ async function cargarAlertasRecientes() {
  *
  * Flujo:
  * 1. Consulta GET /api/v1/dashboard/network-info al backend.
- *    El backend usa un socket UDP ficticio para detectar su propia IP de red
- *    real (192.168.x.x), que es la que deben usar los otros dispositivos.
- * 2. Construye la URL: http://<IP-del-servidor>
- * 3. Genera el QR con la librería QRCode.js apuntando a esa URL.
- * 4. Muestra la URL en texto con botón de copiar.
+ *    El backend lee HOST_IP inyectada por iniciar-fitpro.ps1, que es la IP
+ *    real de Windows (192.168.x.x), accesible desde otros dispositivos WiFi.
+ * 2. Genera el QR con QRCode.js apuntando a esa URL.
+ * 3. Muestra la URL en texto con botón de copiar.
  *
  * Por qué no usar window.location.hostname:
- *   En la PC del servidor, window.location.hostname es "localhost", que no
- *   es accesible desde otros dispositivos. Necesitamos la IP de red real.
+ *   En la PC del servidor vale "localhost", inaccesible desde otros dispositivos.
  */
 async function abrirModalQR() {
-  // Inicializar la instancia del modal de Bootstrap solo la primera vez
+  // Inicializar instancia de Bootstrap solo la primera vez
   if (!_modalQRInstancia) {
     const elModal = document.getElementById('modal-qr');
     if (!elModal) return;
     _modalQRInstancia = new bootstrap.Modal(elModal);
   }
 
-  // Limpiar el contenedor del QR anterior antes de regenerar
+  // Limpiar QR anterior y mostrar estado de carga
   const contenedorQR = document.getElementById('qr-canvas-container');
   const elUrlTexto   = document.getElementById('url-acceso-red');
 
   if (contenedorQR) contenedorQR.innerHTML = '';
   if (elUrlTexto)   elUrlTexto.textContent  = 'Detectando IP de red...';
 
-  // Mostrar el modal inmediatamente con estado de carga
   _modalQRInstancia.show();
 
   try {
-    // Consultar al backend la IP real del servidor en la red local
     const info = await api.get('/dashboard/network-info');
-
-    // Guardar en variable global para que copiarURLRed() pueda usarla
     _urlRedLocal = info.url;
 
-    // Actualizar el texto de la URL en el modal
     if (elUrlTexto) elUrlTexto.textContent = _urlRedLocal;
 
-    // Generar el código QR con QRCode.js apuntando a la URL de red local.
-    // errorCorrectionLevel: 'M' (15% de corrección) — buen equilibrio entre
-    // densidad del QR y tolerancia a daños en la imagen impresa o pantalla.
+    // Generar QR con colores negro/blanco para máximo contraste en escáner
     if (contenedorQR && typeof QRCode !== 'undefined') {
       new QRCode(contenedorQR, {
-        text:               _urlRedLocal,
-        width:              200,
-        height:             200,
-        colorDark:          '#000000',  // Módulos oscuros en negro para máximo contraste
-        colorLight:         '#FFFFFF',  // Fondo blanco requerido por escáneres de celular
-        correctLevel:       QRCode.CorrectLevel.M
+        text:         _urlRedLocal,
+        width:        200,
+        height:       200,
+        colorDark:    '#000000',
+        colorLight:   '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.M
       });
     } else if (contenedorQR) {
-      // QRCode.js no cargó — mostrar URL como texto de respaldo
+      // QRCode.js no cargó — fallback de texto
       contenedorQR.innerHTML = `
-        <div style="width:200px;height:200px;display:flex;align-items:center;
-                    justify-content:center;color:#CC0000;font-size:.8rem;
-                    text-align:center;padding:16px;background:#1A1A1A;
-                    border-radius:8px;border:1px solid #3D3D3D">
+        <div style="
+          width:200px;height:200px;
+          display:flex;align-items:center;justify-content:center;
+          color:var(--verde-primario);font-size:.8rem;
+          text-align:center;padding:16px;
+          background:var(--gris-100);
+          border-radius:var(--radio-md);
+          border:1px solid var(--gris-borde)
+        ">
           <div>
-            <i class="bi bi-qr-code" style="font-size:2rem;display:block;margin-bottom:8px"></i>
+            <i class="bi bi-qr-code"
+               style="font-size:2rem;display:block;margin-bottom:8px;
+                      color:var(--verde-primario)"></i>
             QR no disponible.<br>Usa la URL de arriba.
           </div>
         </div>`;
     }
 
   } catch (error) {
-    // Error de red o servidor caído: mostrar URL de localhost como respaldo
     console.error('Error obteniendo info de red:', error);
     _urlRedLocal = window.location.origin;
 
@@ -482,14 +486,22 @@ async function abrirModalQR() {
 
     if (contenedorQR) {
       contenedorQR.innerHTML = `
-        <div style="width:200px;height:200px;display:flex;align-items:center;
-                    justify-content:center;color:#CC0000;font-size:.8rem;
-                    text-align:center;padding:16px;background:#1A1A1A;
-                    border-radius:8px;border:1px solid #CC0000">
+        <div style="
+          width:200px;height:200px;
+          display:flex;align-items:center;justify-content:center;
+          color:var(--rojo-alerta);font-size:.8rem;
+          text-align:center;padding:16px;
+          background:var(--rojo-bg);
+          border-radius:var(--radio-md);
+          border:1px solid rgba(239,68,68,0.3)
+        ">
           <div>
-            <i class="bi bi-wifi-off" style="font-size:2rem;display:block;margin-bottom:8px"></i>
+            <i class="bi bi-wifi-off"
+               style="font-size:2rem;display:block;margin-bottom:8px"></i>
             No se pudo detectar<br>la IP de red.<br>
-            <span style="color:#999;font-size:.75rem">Ejecuta iniciar-fitpro.bat</span>
+            <span style="color:#516651;font-size:.75rem">
+              Ejecuta iniciar-fitpro.bat
+            </span>
           </div>
         </div>`;
     }
@@ -498,19 +510,18 @@ async function abrirModalQR() {
 
 /**
  * Copia la URL de red local al portapapeles.
- * Usa la Clipboard API moderna con fallback a execCommand para navegadores legacy.
+ * Clipboard API moderna con fallback a execCommand para navegadores legacy.
  */
 async function copiarURLRed() {
   const url = _urlRedLocal || window.location.origin;
 
   try {
-    // Clipboard API — disponible en navegadores modernos con HTTPS o localhost
     await navigator.clipboard.writeText(url);
     mostrarToast('URL copiada al portapapeles', 'exito', 2000);
   } catch {
-    // Fallback para navegadores que no soportan Clipboard API
+    // Fallback para navegadores sin Clipboard API
     const input = document.createElement('input');
-    input.value = url;
+    input.value          = url;
     input.style.position = 'fixed';
     input.style.opacity  = '0';
     document.body.appendChild(input);
@@ -525,10 +536,7 @@ async function copiarURLRed() {
 // EXPORTACIÓN DE REPORTE GLOBAL
 // -----------------------------------------------
 
-/**
- * Notifica al usuario que la exportación de reportes globales estará disponible
- * en la próxima versión. Función requerida por los botones del HTML.
- */
+/** Notifica que la exportación global estará disponible próximamente. */
 function exportarReporte() {
   mostrarToast(
     'La exportación de reportes globales estará disponible en la próxima versión',
@@ -538,16 +546,16 @@ function exportarReporte() {
 }
 
 // -----------------------------------------------
-// NAVEGACIÓN Y UTILIDADES DE UI
+// NAVEGACIÓN Y UTILIDADES
 // -----------------------------------------------
 
-/** Desplaza la vista con animación suave hasta la sección de alertas recientes */
+/** Desplaza la vista hasta la sección de alertas */
 function scrollToAlertas() {
   const el = document.getElementById('seccion-alertas');
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/** Abre o cierra el sidebar en dispositivos móviles con overlay de fondo */
+/** Abre o cierra el sidebar en dispositivos móviles */
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebar-overlay');

@@ -1,5 +1,5 @@
 <!-- frontend/dashboard.html -->
-<!-- Panel principal: estadísticas globales, gráficas y alertas del entrenador -->
+<!-- Panel principal: estadísticas globales, gráficas, alertas y QR de red local -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -17,7 +17,7 @@
        ESTILOS ESPECÍFICOS DEL DASHBOARD
        ----------------------------------------------- */
 
-    /* Franja de bienvenida con degradado verde */
+    /* Hero con degradado verde correcto */
     .dashboard-hero {
       background: linear-gradient(135deg, #15803D 0%, #16A34A 60%, #22C55E 100%);
       border-radius: var(--radio-xl);
@@ -52,7 +52,7 @@
     .dashboard-hero-saludo {
       font-size: 0.82rem;
       font-weight: 600;
-      color: rgba(255,255,255,0.80);
+      color: rgba(255,255,255,0.85);
       text-transform: uppercase;
       letter-spacing: 2px;
       margin-bottom: 6px;
@@ -69,11 +69,11 @@
 
     .dashboard-hero-desc {
       font-size: 0.9rem;
-      color: rgba(255,255,255,0.78);
+      color: rgba(255,255,255,0.82);
       max-width: 420px;
     }
 
-    /* Fecha en el hero */
+    /* Fecha decorativa en el hero */
     .dashboard-hero-fecha {
       position: absolute;
       right: var(--sp-2xl);
@@ -87,7 +87,7 @@
       font-family: var(--fuente-display);
       font-size: 3.5rem;
       font-weight: 900;
-      color: rgba(255,255,255,0.25);
+      color: rgba(255,255,255,0.22);
       line-height: 1;
     }
 
@@ -97,7 +97,7 @@
       text-transform: capitalize;
     }
 
-    /* ── Tarjetas de estadística mejoradas ── */
+    /* Trends de tarjetas stat con colores correctos */
     .stat-card-trend {
       display: flex;
       align-items: center;
@@ -109,9 +109,9 @@
 
     .stat-card-trend.sube  { color: var(--verde-primario); }
     .stat-card-trend.baja  { color: var(--rojo-alerta); }
-    .stat-card-trend.igual { color: #516651; }
+    .stat-card-trend.igual { color: #374E37; }
 
-    /* ── Sección de título con línea ── */
+    /* Encabezados de sección con barra verde lateral */
     .seccion-encabezado {
       display: flex;
       align-items: center;
@@ -131,6 +131,7 @@
       gap: 8px;
     }
 
+    /* Barra verde a la izquierda del título */
     .seccion-encabezado-titulo::before {
       content: '';
       display: inline-block;
@@ -140,77 +141,7 @@
       border-radius: 3px;
     }
 
-    /* ── Fila de alerta con degradado izquierdo ── */
-    .alerta-fila {
-      border-left: 3px solid var(--rojo-alerta) !important;
-    }
-
-    /* ── Actividad reciente: timeline ── */
-    .timeline-item {
-      display: flex;
-      gap: 14px;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--gris-borde);
-    }
-
-    .timeline-item:last-child { border-bottom: none; }
-
-    .timeline-dot {
-      width: 10px;
-      height: 10px;
-      min-width: 10px;
-      border-radius: 50%;
-      background: var(--verde-primario);
-      margin-top: 5px;
-      box-shadow: 0 0 0 3px rgba(22,163,74,0.18);
-    }
-
-    .timeline-dot.alerta {
-      background: var(--rojo-alerta);
-      box-shadow: 0 0 0 3px rgba(239,68,68,0.18);
-    }
-
-    .timeline-texto {
-      font-size: 0.875rem;
-      color: #1F3A1F;
-      font-weight: 500;
-      line-height: 1.4;
-    }
-
-    .timeline-fecha {
-      font-size: 0.75rem;
-      color: #516651;
-      margin-top: 2px;
-    }
-
-    /* ── Chip de IMC ── */
-    .imc-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 12px;
-      border-radius: var(--radio-pill);
-      font-size: 0.78rem;
-      font-weight: 700;
-    }
-
-    .imc-chip.normal   { background: rgba(22,163,74,0.10); color: #15803D; }
-    .imc-chip.alerta   { background: rgba(239,68,68,0.10); color: #991B1B; }
-
-    /* ── Tabla de alertas ── */
-    .alerta-nombre-link {
-      color: #111827;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.875rem;
-      transition: color var(--transicion-rapida);
-    }
-
-    .alerta-nombre-link:hover {
-      color: var(--verde-primario);
-    }
-
-    /* ── Quick actions ── */
+    /* Acciones rápidas */
     .quick-actions {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -260,15 +191,140 @@
       background: rgba(22,163,74,0.15);
     }
 
-    .quick-action-label { font-size: 0.72rem; color: #516651; font-weight: 400; }
+    .quick-action-label {
+      font-size: 0.72rem;
+      color: #516651;
+      font-weight: 400;
+    }
+
+    /* Modal QR con tema claro verde/blanco */
+    .modal-qr-content {
+      background: var(--blanco-puro);
+      border: 1px solid var(--gris-borde);
+      border-radius: var(--radio-2xl);
+      overflow: hidden;
+      box-shadow: var(--sombra-elevada);
+    }
+
+    .modal-qr-header {
+      border-bottom: 1px solid var(--gris-borde);
+      padding: var(--sp-md) var(--sp-lg);
+      background: var(--gris-panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-qr-titulo {
+      font-family: var(--fuente-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #111827;
+      letter-spacing: 0.5px;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    /* Barra verde superior del modal */
+    .modal-qr-banda {
+      height: 4px;
+      background: linear-gradient(90deg, var(--verde-primario), var(--verde-suave));
+    }
+
+    /* Recuadro blanco del QR — requerido para escáneres */
+    .qr-wrapper {
+      display: inline-block;
+      background: #FFFFFF;
+      padding: 16px;
+      border-radius: var(--radio-lg);
+      margin-bottom: var(--sp-lg);
+      box-shadow:
+        0 0 0 1px var(--verde-borde),
+        0 8px 32px rgba(22,163,74,0.12);
+    }
+
+    /* Caja URL */
+    .qr-url-box {
+      background: var(--gris-panel);
+      border: 1px solid var(--gris-borde);
+      border-radius: var(--radio-md);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    #url-acceso-red {
+      color: var(--verde-oscuro);
+      font-size: 0.9rem;
+      word-break: break-all;
+      font-family: 'Courier New', monospace;
+      font-weight: 700;
+    }
+
+    .btn-copiar-url {
+      background: var(--verde-primario);
+      color: #FFFFFF;
+      border: none;
+      border-radius: var(--radio-md);
+      padding: 5px 14px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background var(--transicion-rapida);
+      white-space: nowrap;
+      font-family: var(--fuente-cuerpo);
+    }
+
+    .btn-copiar-url:hover { background: var(--verde-oscuro); }
+
+    .qr-nota {
+      color: #516651;
+      font-size: 0.75rem;
+      margin-top: var(--sp-md);
+      margin-bottom: 0;
+      line-height: 1.5;
+    }
+
+    /* Pasos de instrucciones */
+    .qr-pasos {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: var(--sp-lg);
+      text-align: left;
+    }
+
+    .qr-paso {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: #374E37;
+    }
+
+    .qr-paso-num {
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border-radius: 50%;
+      background: var(--verde-translucido);
+      border: 1px solid var(--verde-borde);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: var(--verde-primario);
+    }
   </style>
 </head>
 <body>
 <div class="app-layout">
 
-  <!-- ====================== -->
-  <!-- SIDEBAR                -->
-  <!-- ====================== -->
+  <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
 
     <a href="dashboard.html" class="sidebar-logo">
@@ -303,6 +359,11 @@
         <i class="bi bi-file-earmark-arrow-down"></i>
         <span>Exportar Reporte</span>
       </button>
+
+      <button class="nav-item" onclick="abrirModalQR()">
+        <i class="bi bi-qr-code"></i>
+        <span>Acceso Red Local</span>
+      </button>
     </nav>
 
     <div class="sidebar-footer">
@@ -313,15 +374,12 @@
     </div>
   </aside>
 
-  <!-- ======================== -->
-  <!-- CONTENIDO PRINCIPAL      -->
-  <!-- ======================== -->
+  <!-- CONTENIDO PRINCIPAL -->
   <main class="main-content">
 
     <!-- Topbar -->
     <header class="topbar">
       <div class="d-flex align-items-center gap-3">
-        <!-- Hamburguesa móvil -->
         <button class="btn btn-secundario btn-icon d-lg-none" onclick="toggleSidebar()">
           <i class="bi bi-list" style="font-size:1.2rem"></i>
         </button>
@@ -329,15 +387,14 @@
       </div>
 
       <div class="topbar-actions">
-        <!-- Botón de alerta con badge -->
+        <!-- Badge de alertas -->
         <button
           class="btn btn-secundario btn-icon position-relative"
           onclick="scrollToAlertas()"
           title="Ver alertas activas"
-          style="color:#374E37"
+          style="color:#1F3A1F"
         >
           <i class="bi bi-bell-fill"></i>
-          <!-- Badge rojo de alertas, visible si hay alertas -->
           <span
             id="badge-alertas"
             class="position-absolute top-0 end-0 rounded-circle"
@@ -345,7 +402,18 @@
           ></span>
         </button>
 
-        <!-- Atajo rápido: nuevo paciente -->
+        <!-- Botón QR -->
+        <button
+          class="btn btn-secundario btn-icon"
+          onclick="abrirModalQR()"
+          title="Compartir acceso — escanea con tu celular"
+          style="color:#1F3A1F"
+          id="btn-qr"
+        >
+          <i class="bi bi-qr-code"></i>
+        </button>
+
+        <!-- Nuevo paciente -->
         <a href="patients.html" class="btn btn-primario btn-sm">
           <i class="bi bi-person-plus-fill me-1"></i>
           <span class="d-none d-md-inline">Nuevo Paciente</span>
@@ -353,12 +421,9 @@
       </div>
     </header>
 
-    <!-- Área de contenido -->
     <div class="page-container">
 
-      <!-- ========================== -->
-      <!-- HERO DE BIENVENIDA         -->
-      <!-- ========================== -->
+      <!-- HERO DE BIENVENIDA -->
       <div class="dashboard-hero">
         <div class="dashboard-hero-content">
           <div class="dashboard-hero-saludo">Panel de Control · FitPro</div>
@@ -369,23 +434,17 @@
             Aquí tienes un resumen de tu actividad y el estado de tus pacientes hoy.
           </div>
         </div>
-
-        <!-- Fecha decorativa -->
         <div class="dashboard-hero-fecha d-none d-md-block">
           <div class="dashboard-hero-fecha-dia" id="fecha-dia">—</div>
           <div class="dashboard-hero-fecha-txt" id="fecha-hoy">—</div>
         </div>
       </div>
 
-      <!-- ========================== -->
-      <!-- TARJETAS DE ESTADÍSTICAS   -->
-      <!-- ========================== -->
+      <!-- TARJETAS DE ESTADÍSTICAS -->
       <div class="stats-grid">
 
         <div class="stat-card">
-          <div class="stat-card-icon">
-            <i class="bi bi-people-fill"></i>
-          </div>
+          <div class="stat-card-icon"><i class="bi bi-people-fill"></i></div>
           <div class="stat-card-valor" id="stat-total-pacientes">—</div>
           <div class="stat-card-label">Total Pacientes</div>
           <div class="stat-card-trend igual">
@@ -394,9 +453,7 @@
         </div>
 
         <div class="stat-card">
-          <div class="stat-card-icon">
-            <i class="bi bi-person-check-fill"></i>
-          </div>
+          <div class="stat-card-icon"><i class="bi bi-person-check-fill"></i></div>
           <div class="stat-card-valor" id="stat-pacientes-activos">—</div>
           <div class="stat-card-label">Pacientes Activos</div>
           <div class="stat-card-trend sube">
@@ -405,9 +462,7 @@
         </div>
 
         <div class="stat-card">
-          <div class="stat-card-icon">
-            <i class="bi bi-clipboard2-pulse-fill"></i>
-          </div>
+          <div class="stat-card-icon"><i class="bi bi-clipboard2-pulse-fill"></i></div>
           <div class="stat-card-valor" id="stat-total-evaluaciones">—</div>
           <div class="stat-card-label">Total Evaluaciones</div>
           <div class="stat-card-trend sube">
@@ -416,21 +471,16 @@
         </div>
 
         <div class="stat-card">
-          <div class="stat-card-icon">
-            <i class="bi bi-calendar3"></i>
-          </div>
+          <div class="stat-card-icon"><i class="bi bi-calendar3"></i></div>
           <div class="stat-card-valor" id="stat-eval-mes">—</div>
           <div class="stat-card-label">Evaluaciones Este Mes</div>
-          <div class="stat-card-trend igual" id="trend-mes">
+          <div class="stat-card-trend igual">
             <i class="bi bi-calendar-check"></i> Mes en curso
           </div>
         </div>
 
-        <!-- Tarjeta de alertas con variante roja -->
         <div class="stat-card alerta">
-          <div class="stat-card-icon">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-          </div>
+          <div class="stat-card-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
           <div class="stat-card-valor" id="stat-con-alerta" style="color:var(--rojo-alerta)">—</div>
           <div class="stat-card-label">Pacientes con Alerta</div>
           <div class="stat-card-trend baja">
@@ -439,9 +489,7 @@
         </div>
 
         <div class="stat-card">
-          <div class="stat-card-icon">
-            <i class="bi bi-calculator-fill"></i>
-          </div>
+          <div class="stat-card-icon"><i class="bi bi-calculator-fill"></i></div>
           <div class="stat-card-valor" id="stat-imc">—</div>
           <div class="stat-card-label">IMC Promedio</div>
           <div class="stat-card-trend igual">
@@ -449,11 +497,9 @@
           </div>
         </div>
 
-      </div><!-- /.stats-grid -->
+      </div>
 
-      <!-- ========================== -->
-      <!-- ACCIONES RÁPIDAS           -->
-      <!-- ========================== -->
+      <!-- ACCIONES RÁPIDAS -->
       <div class="seccion-encabezado">
         <div class="seccion-encabezado-titulo">Acciones Rápidas</div>
       </div>
@@ -481,7 +527,7 @@
 
         <button class="quick-action-btn" onclick="exportarReporte()">
           <div class="quick-action-icon">
-            <i class="bi bi-file-earmark-excel-fill" style="color:#16A34A"></i>
+            <i class="bi bi-file-earmark-excel-fill" style="color:var(--verde-primario)"></i>
           </div>
           <div>
             <div>Exportar Reporte</div>
@@ -489,28 +535,25 @@
           </div>
         </button>
 
-        <button class="quick-action-btn" onclick="scrollToAlertas()">
+        <!-- Acción rápida QR -->
+        <button class="quick-action-btn" onclick="abrirModalQR()">
           <div class="quick-action-icon">
-            <i class="bi bi-bell-fill" style="color:var(--rojo-alerta)"></i>
+            <i class="bi bi-qr-code" style="color:var(--verde-primario)"></i>
           </div>
           <div>
-            <div>Ver Alertas</div>
-            <div class="quick-action-label">Pacientes críticos</div>
+            <div>Acceso Red Local</div>
+            <div class="quick-action-label">QR para tu celular</div>
           </div>
         </button>
       </div>
 
-      <!-- ========================== -->
-      <!-- GRÁFICAS                   -->
-      <!-- ========================== -->
+      <!-- GRÁFICAS -->
       <div class="seccion-encabezado">
         <div class="seccion-encabezado-titulo">Actividad Estadística</div>
         <span style="font-size:.78rem;color:#516651">Últimos 12 meses</span>
       </div>
 
       <div class="grid-2 mb-4">
-
-        <!-- Evaluaciones por mes -->
         <div class="grafica-container">
           <div class="grafica-titulo">
             <i class="bi bi-bar-chart-fill" style="color:var(--verde-primario)"></i>
@@ -519,7 +562,6 @@
           <canvas id="grafica-evoluciones" height="220"></canvas>
         </div>
 
-        <!-- Top 5 pacientes -->
         <div class="grafica-container">
           <div class="grafica-titulo">
             <i class="bi bi-trophy-fill" style="color:var(--verde-primario)"></i>
@@ -527,16 +569,14 @@
           </div>
           <canvas id="grafica-top-pacientes" height="220"></canvas>
         </div>
-
       </div>
 
-      <!-- ========================== -->
-      <!-- ALERTAS RECIENTES          -->
-      <!-- ========================== -->
+      <!-- ALERTAS RECIENTES -->
       <div id="seccion-alertas">
         <div class="seccion-encabezado">
           <div class="seccion-encabezado-titulo">
-            <i class="bi bi-exclamation-triangle-fill" style="color:var(--rojo-alerta);margin-left:8px"></i>
+            <i class="bi bi-exclamation-triangle-fill"
+               style="color:var(--rojo-alerta);margin-left:8px"></i>
             Alertas Recientes
           </div>
           <a href="patients.html" class="btn btn-fantasma btn-sm">
@@ -567,7 +607,7 @@
             </table>
           </div>
         </div>
-      </div><!-- /#seccion-alertas -->
+      </div>
 
     </div><!-- /.page-container -->
   </main>
@@ -580,14 +620,81 @@
   style="display:none;position:fixed;inset:0;background:rgba(15,42,26,0.45);backdrop-filter:blur(2px);z-index:999"
 ></div>
 
+<!-- MODAL QR — Red Local -->
+<div class="modal fade" id="modal-qr" tabindex="-1" aria-labelledby="modal-qr-label" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content modal-qr-content">
+
+      <!-- Banda verde superior -->
+      <div class="modal-qr-banda"></div>
+
+      <!-- Cabecera -->
+      <div class="modal-qr-header">
+        <h5 class="modal-qr-titulo" id="modal-qr-label">
+          <i class="bi bi-qr-code me-2" style="color:var(--verde-primario)"></i>
+          Acceso desde Otros Dispositivos
+        </h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+
+      <!-- Cuerpo -->
+      <div class="modal-body text-center" style="padding:2rem 1.5rem;background:var(--blanco-puro)">
+
+        <!-- Instrucciones paso a paso -->
+        <div class="qr-pasos mb-4">
+          <div class="qr-paso">
+            <div class="qr-paso-num">1</div>
+            <span>Conecta tu celular al <strong>mismo WiFi</strong> que este computador.</span>
+          </div>
+          <div class="qr-paso">
+            <div class="qr-paso-num">2</div>
+            <span>Escanea el código QR con la cámara o una app de QR.</span>
+          </div>
+          <div class="qr-paso">
+            <div class="qr-paso-num">3</div>
+            <span>FitPro se abrirá en tu dispositivo listo para usar.</span>
+          </div>
+        </div>
+
+        <!-- QR generado dinámicamente por QRCode.js -->
+        <div class="qr-wrapper">
+          <div id="qr-canvas-container" style="width:200px;height:200px"></div>
+        </div>
+
+        <!-- URL con botón copiar -->
+        <div class="qr-url-box mb-3">
+          <code id="url-acceso-red">Detectando IP...</code>
+          <button class="btn-copiar-url" onclick="copiarURLRed()">
+            <i class="bi bi-copy me-1"></i>Copiar
+          </button>
+        </div>
+
+        <!-- Nota informativa -->
+        <p class="qr-nota">
+          <i class="bi bi-info-circle me-1" style="color:var(--verde-primario)"></i>
+          Si aparece <code style="color:#516651">localhost</code>, ejecuta
+          <code style="color:#516651">iniciar-fitpro.bat</code> como administrador
+          para habilitar el acceso en red.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<!-- QRCode.js — generación de QR en el navegador -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <!-- Cliente API -->
 <script src="js/api.js"></script>
-<!-- Licencia -->
-<script src="js/license.js"></script>
 <!-- Lógica del dashboard -->
 <script src="js/dashboard.js"></script>
 
