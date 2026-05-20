@@ -1,8 +1,9 @@
 # backend/app/routers/dashboard.py
 # Endpoints del panel estadístico: métricas globales y análisis del entrenador.
-# El endpoint /network-info usa HOST_IP inyectada por el script .ps1 de Windows,
-# que es la única forma confiable de obtener la IP real de la máquina anfitriona
-# desde dentro de un contenedor Docker corriendo en WSL2.
+# El endpoint /network-info usa HOST_IP inyectada por los scripts de lanzamiento
+# (lanzador_programa.vbs / lanzar_programa.sh / lanzador_programa.command),
+# que detectan la IP real de la máquina anfitriona ANTES de levantar Docker
+# y la pasan al contenedor como variable de entorno HOST_IP.
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
@@ -202,53 +203,79 @@ async def obtener_info_red(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Retorna la IP de red local del servidor Windows anfitrión para el QR.
+    Retorna la IP de red local del servidor anfitrión para el código QR.
 
-    Problema Docker + WSL2:
-      El contenedor backend corre dentro de WSL2, cuya red interna es 172.x.x.x.
-      Cualquier método de detección de IP desde dentro del contenedor
-      (socket, hostname, interfaces) retorna esa IP interna, no la IP WiFi
-      real de Windows (192.168.x.x) que es la que necesitan los otros dispositivos.
+    Flujo de detección (en orden de prioridad):
 
-    Solución:
-      El script iniciar-fitpro.ps1 detecta la IP real de Windows ANTES de
-      arrancar Docker y la pasa al contenedor como variable de entorno HOST_IP
-      mediante: HOST_IP=192.168.x.x docker compose up -d
+    PRIORIDAD 1 — HOST_IP inyectada por los scripts de lanzamiento:
+      Los scripts (lanzador_programa.vbs / lanzar_programa.sh /
+      lanzador_programa.command) detectan la IP real de la máquina
+      ANTES de arrancar Docker y la pasan al contenedor como:
+        HOST_IP=192.168.x.x docker compose up -d
+      Esta IP es siempre la correcta para acceso en red WiFi local.
 
-      Este endpoint lee HOST_IP con os.getenv() y la retorna directamente.
-      Si HOST_IP no está disponible (arranque manual sin el script), usa el
-      socket UDP como respaldo, que en ese caso puede retornar la IP del
-      contenedor — el frontend mostrará una advertencia.
+    PRIORIDAD 2 — Cabecera X-Forwarded-For de nginx:
+      Si la petición llega desde la red local (no desde localhost),
+      nginx inyecta la IP del cliente en X-Forwarded-For.
+      En ese caso asumimos que la IP del servidor es alcanzable
+      por el mismo segmento de red, pero esto NO garantiza la IP
+      del servidor — solo sirve como indicador de conectividad.
+
+    PRIORIDAD 3 — Socket UDP ficticio:
+      Útil SOLO en desarrollo local sin Docker. Dentro de Docker/WSL2
+      retorna la IP interna del contenedor (172.x.x.x), que NO es
+      accesible desde otros dispositivos. Se incluye únicamente como
+      último recurso con advertencia en los logs.
+
+    Problema Docker + WSL2 / HyperKit (macOS):
+      El contenedor backend corre dentro de una VM (WSL2 en Windows,
+      HyperKit/VZ en Mac). Cualquier detección de IP desde dentro del
+      contenedor retorna la IP interna del bridge Docker (172.x.x.x),
+      no la IP WiFi real del host. Por eso el script de lanzamiento
+      DEBE inyectar HOST_IP antes de arrancar Docker.
     """
-    # PRIORIDAD 1: IP de Windows inyectada por iniciar-fitpro.ps1
-    # Esta es siempre la IP correcta cuando se usa el script de inicio
+    # -----------------------------------------------
+    # PRIORIDAD 1: IP inyectada por el script de lanzamiento.
+    # Esta es siempre la IP correcta cuando se usa el lanzador.
+    # -----------------------------------------------
     host_ip = os.getenv("HOST_IP", "").strip()
 
-    # Validar que sea una IP real (no vacía, no localhost, no IP interna Docker)
-    es_ip_valida = (
-        host_ip
-        and host_ip != "localhost"
-        and not host_ip.startswith("127.")
-        and not host_ip.startswith("172.")
-    )
+    # Validar que sea una IPv4 real de red local (no vacía, no loopback,
+    # no IP interna de Docker, no APIPA sin conexión)
+    def es_ip_red_valida(ip: str) -> bool:
+        if not ip:
+            return False
+        segmentos_invalidos = ("127.", "172.", "169.254.", "0.")
+        invalidos = ["localhost", ""]
+        if ip in invalidos:
+            return False
+        for seg in segmentos_invalidos:
+            if ip.startswith(seg):
+                return False
+        # Verificar que tenga formato IPv4 básico (x.x.x.x)
+        partes = ip.split(".")
+        if len(partes) != 4:
+            return False
+        return all(p.isdigit() and 0 <= int(p) <= 255 for p in partes)
 
-    if es_ip_valida:
-        logger.info(f"IP de red desde HOST_IP (Windows): {host_ip}")
+    if es_ip_red_valida(host_ip):
+        logger.info(f"IP de red desde HOST_IP (script de lanzamiento): {host_ip}")
         return {
             "ip":     host_ip,
             "url":    f"http://{host_ip}",
             "puerto": 80,
-            "fuente": "host"   # Indica que viene del anfitrión Windows
+            "fuente": "host"
         }
 
-    # PRIORIDAD 2: socket UDP ficticio como respaldo
-    # Útil si se arranca con "docker compose up" directo sin el script .ps1
-    # NOTA: dentro de Docker/WSL2 esto retorna la IP del contenedor (172.x.x.x),
-    # no la de Windows. El frontend mostrará una advertencia en este caso.
+    # -----------------------------------------------
+    # PRIORIDAD 2: Socket UDP ficticio como respaldo.
+    # NOTA: dentro de Docker/WSL2 esto retorna 172.x.x.x (IP del contenedor).
+    # Solo es útil en desarrollo local sin Docker o en Linux nativo.
+    # -----------------------------------------------
     ip_socket = None
     try:
         # Conexión UDP a 8.8.8.8 sin enviar datos — solo fuerza la selección
-        # de interfaz de red para exponer la IP local de esa interfaz
+        # de la interfaz de red para exponer la IP local de esa interfaz.
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(2)
         sock.connect(("8.8.8.8", 80))
@@ -265,13 +292,13 @@ async def obtener_info_red(
             ip_socket = "localhost"
 
     logger.warning(
-        f"HOST_IP no disponible. IP detectada por socket: {ip_socket}. "
-        "Para obtener la IP correcta de red, usa iniciar-fitpro.bat"
+        f"HOST_IP no disponible o inválida. IP detectada por socket: {ip_socket}. "
+        "Para el QR correcto, usa el script de lanzamiento correspondiente a tu SO."
     )
 
     return {
         "ip":     ip_socket,
         "url":    f"http://{ip_socket}",
         "puerto": 80,
-        "fuente": "socket"  # Indica que es la IP del contenedor, no del anfitrión
+        "fuente": "socket"
     }
