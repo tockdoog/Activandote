@@ -26,9 +26,9 @@ let _countdownInterval = null;
 
 /**
  * Verifica el estado de la licencia contra el backend.
- * - Vencida → redirige a license-expired.html
- * - Próxima a vencer → muestra banner con countdown
- * - Vigente → no hace nada visible
+ * - Vencida         → redirige a license-expired.html
+ * - Próxima a vencer → muestra banner verde/blanco con countdown
+ * - Vigente          → no hace nada visible
  */
 async function verificarLicencia() {
   // No ejecutar en páginas excluidas (login, bloqueo)
@@ -54,7 +54,7 @@ async function verificarLicencia() {
       return;
     }
 
-    // Próxima a vencer: mostrar banner con countdown en tiempo real
+    // Próxima a vencer: mostrar banner de advertencia con countdown
     if (estado.mostrar_advertencia) {
       mostrarBannerAdvertencia(estado);
     }
@@ -72,13 +72,13 @@ async function verificarLicencia() {
 
 
 // -----------------------------------------------
-// BANNER DE ADVERTENCIA CON COUNTDOWN
-// Aparece en la parte superior cuando quedan <= N días
+// BANNER DE ADVERTENCIA CON COUNTDOWN — Paleta verde/blanco
+// Aparece en la parte superior cuando quedan pocos días
 // -----------------------------------------------
 
 /**
- * Inyecta el banner rojo con countdown en tiempo real.
- * El countdown corre localmente en JS sin nuevas peticiones al servidor.
+ * Inyecta el banner de advertencia con countdown en tiempo real.
+ * Diseño claro con acento verde — coherente con el sistema.
  * @param {object} estado - Respuesta del endpoint /licensing/estado
  */
 function mostrarBannerAdvertencia(estado) {
@@ -95,7 +95,7 @@ function mostrarBannerAdvertencia(estado) {
     position: fixed;
     top: 0; left: 0; right: 0;
     z-index: 99999;
-    background: linear-gradient(135deg, #8B0000, #CC0000);
+    background: linear-gradient(135deg, #15803D, #16A34A);
     color: #ffffff;
     padding: 0 20px;
     height: 48px;
@@ -106,7 +106,7 @@ function mostrarBannerAdvertencia(estado) {
     font-family: 'Inter', sans-serif;
     font-size: 0.82rem;
     font-weight: 500;
-    box-shadow: 0 2px 16px rgba(204,0,0,0.40);
+    box-shadow: 0 2px 16px rgba(22,163,74,0.35);
     animation: licenseSlideDown 0.35s cubic-bezier(0.16,1,0.3,1);
   `;
 
@@ -119,17 +119,18 @@ function mostrarBannerAdvertencia(estado) {
         from { transform: translateY(-100%); opacity: 0; }
         to   { transform: translateY(0);     opacity: 1; }
       }
+      /* Countdown con fuente tabular para que los números no salten */
       #license-countdown {
         font-variant-numeric: tabular-nums;
         font-weight: 700;
-        color: #FFD0D0;
+        color: #D1FAE5;
         letter-spacing: 0.5px;
       }
     `;
     document.head.appendChild(styleEl);
   }
 
-  // HTML interno del banner con el countdown
+  // HTML interno del banner con el countdown en tiempo real
   banner.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
       <span style="font-size:1rem;flex-shrink:0">⚠️</span>
@@ -140,11 +141,12 @@ function mostrarBannerAdvertencia(estado) {
       </span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <!-- Botón renovar: fondo blanco traslúcido sobre verde -->
       <button
         onclick="window.location.href='license-expired.html'"
         style="
-          background: rgba(255,255,255,0.15);
-          border: 1px solid rgba(255,255,255,0.30);
+          background: rgba(255,255,255,0.20);
+          border: 1px solid rgba(255,255,255,0.35);
           color: #fff;
           border-radius: 6px;
           padding: 5px 12px;
@@ -155,15 +157,16 @@ function mostrarBannerAdvertencia(estado) {
           white-space: nowrap;
           transition: background 0.2s;
         "
-        onmouseover="this.style.background='rgba(255,255,255,0.25)'"
-        onmouseout="this.style.background='rgba(255,255,255,0.15)'"
+        onmouseover="this.style.background='rgba(255,255,255,0.30)'"
+        onmouseout="this.style.background='rgba(255,255,255,0.20)'"
       >🔑 Renovar ahora</button>
+      <!-- Botón cerrar/descartar el banner -->
       <button
         onclick="_descartarBannerLicencia()"
         style="
           background: none;
           border: none;
-          color: rgba(255,255,255,0.60);
+          color: rgba(255,255,255,0.65);
           cursor: pointer;
           font-size: 1.2rem;
           padding: 0 4px;
@@ -171,26 +174,26 @@ function mostrarBannerAdvertencia(estado) {
           transition: color 0.2s;
         "
         onmouseover="this.style.color='#fff'"
-        onmouseout="this.style.color='rgba(255,255,255,0.60)'"
+        onmouseout="this.style.color='rgba(255,255,255,0.65)'"
         title="Descartar advertencia"
       >×</button>
     </div>
   `;
 
-  // Insertar como primer hijo del body
+  // Insertar como primer hijo del body para que aparezca sobre todo
   document.body.insertBefore(banner, document.body.firstChild);
 
-  // Compensar el alto del banner en el contenido de la página
+  // Compensar el alto del banner en el layout de la página
   const alturaBanner = 48;
   const paddingActual = parseInt(document.body.style.paddingTop || '0');
   document.body.style.paddingTop = (paddingActual + alturaBanner) + 'px';
 
-  // Iniciar el countdown en tiempo real usando la fecha calculada
+  // Iniciar el countdown en tiempo real con la fecha calculada
   _iniciarCountdown(fechaVencimiento);
 }
 
 /**
- * Elimina el banner y limpia el intervalo del countdown.
+ * Elimina el banner de advertencia y limpia el intervalo del countdown.
  */
 function _descartarBannerLicencia() {
   const banner = document.getElementById('license-warning-banner');
@@ -208,23 +211,26 @@ function _descartarBannerLicencia() {
 
 /**
  * Inicia el countdown que actualiza el texto cada segundo.
- * Cuando llega a cero, redirige a la página de bloqueo.
- * @param {Date} fechaVencimiento - Fecha exacta de expiración
+ * Cuando llega a cero redirige automáticamente a la página de bloqueo.
+ * @param {Date} fechaVencimiento - Fecha exacta de expiración de la licencia
  */
 function _iniciarCountdown(fechaVencimiento) {
   // Limpiar cualquier countdown previo
   if (_countdownInterval) clearInterval(_countdownInterval);
 
   function actualizarCountdown() {
-    const ahora = Date.now();
+    const ahora      = Date.now();
     const diferencia = fechaVencimiento.getTime() - ahora;
-    const el = document.getElementById('license-countdown');
+    const el         = document.getElementById('license-countdown');
 
     // Si ya venció mientras el usuario estaba en la app
     if (diferencia <= 0) {
       clearInterval(_countdownInterval);
       if (el) el.textContent = '¡EXPIRADA!';
-      // Esperar 2 segundos y redirigir al bloqueo
+      // Mostrar toast de aviso antes de redirigir (si está disponible)
+      if (typeof mostrarToast === 'function') {
+        mostrarToast('Tu licencia ha vencido. Redirigiendo...', 'advertencia', 3000);
+      }
       setTimeout(() => {
         window.location.href = 'license-expired.html';
       }, 2000);
@@ -237,22 +243,17 @@ function _iniciarCountdown(fechaVencimiento) {
     const minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
     const segs    = Math.floor((diferencia % (1000 * 60)) / 1000);
 
-    // Formatear con ceros a la izquierda para consistencia visual
+    // Formatear con ceros a la izquierda para consistencia visual (tabular)
     const pad = (n) => String(n).padStart(2, '0');
 
-    let textoCountdown;
-    if (dias > 0) {
-      // Más de un día: mostrar días y horas
-      textoCountdown = `${dias}d ${pad(horas)}h ${pad(minutos)}m ${pad(segs)}s`;
-    } else {
-      // Menos de un día: mostrar solo horas, minutos y segundos
-      textoCountdown = `${pad(horas)}h ${pad(minutos)}m ${pad(segs)}s`;
-    }
+    const textoCountdown = dias > 0
+      ? `${dias}d ${pad(horas)}h ${pad(minutos)}m ${pad(segs)}s`
+      : `${pad(horas)}h ${pad(minutos)}m ${pad(segs)}s`;
 
     if (el) el.textContent = textoCountdown;
   }
 
-  // Ejecutar inmediatamente y luego cada segundo
+  // Ejecutar inmediatamente y luego actualizar cada segundo
   actualizarCountdown();
   _countdownInterval = setInterval(actualizarCountdown, 1000);
 }
@@ -260,12 +261,12 @@ function _iniciarCountdown(fechaVencimiento) {
 
 // -----------------------------------------------
 // VERIFICACIÓN PERIÓDICA EN SEGUNDO PLANO
-// Re-consulta al servidor cada N minutos para detectar cambios
+// Re-consulta al servidor cada N minutos para detectar cambios en tiempo real
 // -----------------------------------------------
 
 /**
  * Si la licencia vence mientras el usuario está usando la app,
- * esta función lo detecta y redirige automáticamente.
+ * esta función lo detecta y redirige automáticamente al bloqueo.
  */
 function iniciarVerificacionPeriodica() {
   const intervaloMs = LICENSE_CONFIG.INTERVALO_VERIFICACION_MINUTOS * 60 * 1000;
@@ -277,9 +278,9 @@ function iniciarVerificacionPeriodica() {
       const estado = await api.get('/licensing/estado');
 
       if (!estado.acceso_permitido) {
-        // Mostrar toast de aviso antes de redirigir
+        // Notificar al usuario antes de redirigir
         if (typeof mostrarToast === 'function') {
-          mostrarToast('Tu licencia ha vencido. Redirigiendo...', 'error', 3000);
+          mostrarToast('Tu licencia ha vencido. Redirigiendo...', 'advertencia', 3000);
         }
         setTimeout(() => {
           window.location.href = 'license-expired.html';
@@ -287,9 +288,11 @@ function iniciarVerificacionPeriodica() {
       }
 
     } catch (error) {
+      // 402 explícito: bloquear inmediatamente
       if (error.status === 402) {
         window.location.href = 'license-expired.html';
       }
+      // Otros errores: ignorar silenciosamente
     }
   }, intervaloMs);
 }
@@ -321,7 +324,7 @@ function iniciarVerificacionPeriodica() {
 
 
 // -----------------------------------------------
-// AUTO-EJECUCIÓN al incluir el script
+// AUTO-EJECUCIÓN al incluir el script en cualquier página protegida
 // -----------------------------------------------
 verificarLicencia();
 iniciarVerificacionPeriodica();

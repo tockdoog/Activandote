@@ -1,6 +1,6 @@
 <!-- frontend/license-expired.html -->
 <!-- Página de bloqueo cuando la licencia mensual ha vencido -->
-<!-- Paleta: Rojo #CC0000 / Negro #0D0D0D / Blanco #FFFFFF -->
+<!-- Paleta: Verde #16A34A / Blanco #FFFFFF / Grises claros -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -19,27 +19,13 @@
 
   <style>
     /* -----------------------------------------------
-       VARIABLES Y RESET
+       BODY — fondo claro fitness con acento verde
        ----------------------------------------------- */
-    :root {
-      --rojo:        #CC0000;
-      --rojo-oscuro: #8B0000;
-      --rojo-suave:  #FF4444;
-      --negro:       #0D0D0D;
-      --negro-card:  #141414;
-      --negro-borde: #242424;
-      --blanco:      #FFFFFF;
-      --gris:        #999999;
-    }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* -----------------------------------------------
-       BODY — fondo negro con destellos rojos
-       ----------------------------------------------- */
     body {
-      background: var(--negro);
-      color: var(--blanco);
+      background: #F0F5F0;
+      color: #111827;
       font-family: 'Inter', sans-serif;
       min-height: 100vh;
       display: flex;
@@ -49,25 +35,25 @@
       position: relative;
     }
 
-    /* Destellos rojos en las esquinas del fondo */
+    /* Destellos verdes sutiles en las esquinas del fondo */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
       background:
-        radial-gradient(ellipse at 15% 50%, rgba(204,0,0,0.14) 0%, transparent 55%),
-        radial-gradient(ellipse at 85% 15%, rgba(204,0,0,0.09) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 85%, rgba(204,0,0,0.06) 0%, transparent 45%);
+        radial-gradient(ellipse at 15% 50%, rgba(22,163,74,0.10) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 15%, rgba(22,163,74,0.07) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 85%, rgba(22,163,74,0.05) 0%, transparent 45%);
       pointer-events: none;
       z-index: 0;
     }
 
-    /* Patrón de puntos sutil */
+    /* Patrón de puntos sutil sobre fondo claro */
     body::after {
       content: '';
       position: fixed;
       inset: 0;
-      background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-image: radial-gradient(rgba(22,163,74,0.06) 1px, transparent 1px);
       background-size: 28px 28px;
       pointer-events: none;
       z-index: 0;
@@ -85,14 +71,14 @@
     }
 
     .bloqueo-card {
-      background: var(--negro-card);
-      border: 1px solid var(--negro-borde);
+      background: #FFFFFF;
+      border: 1px solid #DDE8DD;
       border-radius: 22px;
       padding: 40px 36px 32px;
       box-shadow:
-        0 0 0 1px rgba(204,0,0,0.12),
-        0 32px 80px rgba(0,0,0,0.7),
-        0 0 60px rgba(204,0,0,0.06);
+        0 0 0 1px rgba(22,163,74,0.08),
+        0 32px 80px rgba(0,0,0,0.10),
+        0 0 60px rgba(22,163,74,0.05);
       animation: cardEntrada 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
@@ -101,12 +87,12 @@
       to   { opacity: 1; transform: translateY(0)    scale(1); }
     }
 
-    /* Línea degradada roja en la parte superior de la card */
+    /* Banda degradada verde en la parte superior de la card */
     .bloqueo-card::before {
       content: '';
       display: block;
-      height: 3px;
-      background: linear-gradient(90deg, transparent, var(--rojo), var(--rojo-suave), var(--rojo), transparent);
+      height: 4px;
+      background: linear-gradient(90deg, transparent, #16A34A, #22C55E, #16A34A, transparent);
       border-radius: 22px 22px 0 0;
       margin: -40px -36px 36px;
     }
@@ -120,25 +106,26 @@
       justify-content: center;
       gap: 10px;
       margin-bottom: 28px;
-      opacity: 0.5;
+      opacity: 0.75;
     }
 
     .logo-icono {
       width: 32px;
       height: 32px;
-      background: var(--rojo);
+      background: #16A34A;
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1rem;
+      box-shadow: 0 4px 12px rgba(22,163,74,0.30);
     }
 
     .logo-texto {
       font-family: 'Barlow Condensed', sans-serif;
       font-size: 1.4rem;
       font-weight: 800;
-      color: var(--blanco);
+      color: #111827;
       letter-spacing: 3px;
     }
 
@@ -154,8 +141,8 @@
     .icono-bloqueo {
       width: 90px;
       height: 90px;
-      background: rgba(204,0,0,0.10);
-      border: 2px solid rgba(204,0,0,0.25);
+      background: rgba(239,68,68,0.08);
+      border: 2px solid rgba(239,68,68,0.20);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -171,13 +158,13 @@
       position: absolute;
       inset: -10px;
       border-radius: 50%;
-      border: 1px solid rgba(204,0,0,0.15);
+      border: 1px solid rgba(239,68,68,0.12);
       animation: pulsoAnillo 3s ease-in-out infinite;
     }
 
     @keyframes pulsoIcono {
-      0%, 100% { box-shadow: 0 0 0 0   rgba(204,0,0,0.25); }
-      50%       { box-shadow: 0 0 0 14px rgba(204,0,0,0);   }
+      0%, 100% { box-shadow: 0 0 0 0   rgba(239,68,68,0.20); }
+      50%       { box-shadow: 0 0 0 14px rgba(239,68,68,0);  }
     }
 
     @keyframes pulsoAnillo {
@@ -192,50 +179,51 @@
       font-family: 'Barlow Condensed', sans-serif;
       font-size: 2rem;
       font-weight: 800;
-      color: var(--blanco);
+      color: #111827;
       text-align: center;
       letter-spacing: 1.5px;
       line-height: 1.1;
       margin-bottom: 10px;
     }
 
-    .titulo-bloqueo span { color: var(--rojo-suave); }
+    /* Palabra de alerta en rojo */
+    .titulo-bloqueo span { color: #EF4444; }
 
     .subtitulo-bloqueo {
       text-align: center;
-      color: var(--gris);
+      color: #374E37;
       font-size: 0.875rem;
       line-height: 1.6;
       margin-bottom: 24px;
     }
 
     /* -----------------------------------------------
-       COUNTDOWN PRINCIPAL (cuando la licencia aún no venció
-       pero está en la página de renovación)
+       COUNTDOWN PRINCIPAL
        ----------------------------------------------- */
     .countdown-principal {
-      background: rgba(204,0,0,0.07);
-      border: 1px solid rgba(204,0,0,0.18);
+      background: rgba(22,163,74,0.07);
+      border: 1px solid rgba(22,163,74,0.18);
       border-radius: 14px;
       padding: 16px 20px;
       margin-bottom: 20px;
       text-align: center;
-      display: none; /* Se muestra solo si hay tiempo restante */
+      display: none;
     }
 
     .countdown-label {
       font-size: 0.72rem;
-      color: var(--gris);
+      color: #516651;
       text-transform: uppercase;
       letter-spacing: 1.5px;
       margin-bottom: 8px;
+      font-weight: 700;
     }
 
     .countdown-tiempo {
       font-family: 'Barlow Condensed', monospace;
       font-size: 2.2rem;
       font-weight: 800;
-      color: var(--rojo-suave);
+      color: #15803D;
       letter-spacing: 2px;
       font-variant-numeric: tabular-nums;
     }
@@ -247,8 +235,8 @@
       display: flex;
       align-items: flex-start;
       gap: 12px;
-      background: rgba(204,0,0,0.08);
-      border: 1px solid rgba(204,0,0,0.20);
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.18);
       border-radius: 12px;
       padding: 14px 16px;
       margin-bottom: 24px;
@@ -256,20 +244,20 @@
 
     .badge-estado-icono {
       font-size: 1.3rem;
-      color: var(--rojo-suave);
+      color: #EF4444;
       flex-shrink: 0;
       margin-top: 1px;
     }
 
     .badge-estado-texto strong {
       display: block;
-      color: var(--blanco);
+      color: #111827;
       font-size: 0.875rem;
       margin-bottom: 3px;
     }
 
     .badge-estado-texto span {
-      color: var(--gris);
+      color: #516651;
       font-size: 0.80rem;
       line-height: 1.4;
     }
@@ -283,7 +271,7 @@
       gap: 6px;
       font-size: 0.75rem;
       font-weight: 700;
-      color: var(--gris);
+      color: #374E37;
       text-transform: uppercase;
       letter-spacing: 1.2px;
       margin-bottom: 10px;
@@ -293,11 +281,11 @@
 
     .input-clave {
       width: 100%;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--negro-borde);
+      background: #F4F8F4;
+      border: 1.5px solid #C8D6C8;
       border-radius: 11px;
       padding: 14px 50px 14px 16px;
-      color: var(--blanco);
+      color: #111827;
       font-size: 0.95rem;
       font-family: 'Inter', monospace;
       letter-spacing: 0.5px;
@@ -306,17 +294,18 @@
     }
 
     .input-clave:focus {
-      border-color: var(--rojo);
-      box-shadow: 0 0 0 3px rgba(204,0,0,0.18);
+      border-color: #16A34A;
+      box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+      background: #FFFFFF;
     }
 
     .input-clave.error {
-      border-color: var(--rojo-suave);
-      box-shadow: 0 0 0 3px rgba(255,68,68,0.15);
+      border-color: #EF4444;
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
       animation: shake 0.4s ease;
     }
 
-    .input-clave::placeholder { color: rgba(255,255,255,0.20); }
+    .input-clave::placeholder { color: #9EB49E; }
 
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
@@ -324,17 +313,6 @@
       40%       { transform: translateX(6px); }
       60%       { transform: translateX(-4px); }
       80%       { transform: translateX(4px); }
-    }
-
-    /* Ícono dentro del input */
-    .input-icono {
-      position: absolute;
-      right: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: rgba(255,255,255,0.20);
-      font-size: 1rem;
-      pointer-events: none;
     }
 
     /* Toggle de visibilidad de la clave */
@@ -345,7 +323,7 @@
       transform: translateY(-50%);
       background: none;
       border: none;
-      color: rgba(255,255,255,0.35);
+      color: #9EB49E;
       cursor: pointer;
       padding: 0;
       font-size: 1rem;
@@ -353,13 +331,13 @@
       line-height: 1;
     }
 
-    .btn-toggle-clave:hover { color: var(--blanco); }
+    .btn-toggle-clave:hover { color: #16A34A; }
 
-    /* Botón principal de renovación */
+    /* Botón principal de renovación — verde */
     .btn-renovar {
       width: 100%;
-      background: var(--rojo);
-      color: var(--blanco);
+      background: #16A34A;
+      color: #FFFFFF;
       border: none;
       border-radius: 11px;
       padding: 15px;
@@ -376,12 +354,11 @@
     }
 
     .btn-renovar:hover:not(:disabled) {
-      background: var(--rojo-oscuro);
-      box-shadow: 0 6px 24px rgba(204,0,0,0.40);
+      background: #15803D;
+      box-shadow: 0 6px 24px rgba(22,163,74,0.35);
     }
 
     .btn-renovar:active:not(:disabled) { transform: scale(0.98); }
-
     .btn-renovar:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* -----------------------------------------------
@@ -399,15 +376,15 @@
     }
 
     .alerta-error {
-      background: rgba(204,0,0,0.12);
-      border: 1px solid rgba(204,0,0,0.28);
-      color: #FF9999;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.22);
+      color: #991B1B;
     }
 
     .alerta-exito {
-      background: rgba(0,160,70,0.10);
-      border: 1px solid rgba(0,160,70,0.25);
-      color: #66E8A0;
+      background: rgba(22,163,74,0.08);
+      border: 1px solid rgba(22,163,74,0.22);
+      color: #14532D;
     }
 
     @keyframes fadeInUp {
@@ -429,19 +406,19 @@
       content: '';
       flex: 1;
       height: 1px;
-      background: var(--negro-borde);
+      background: #DDE8DD;
     }
 
     .divisor span {
       font-size: 0.70rem;
-      color: rgba(255,255,255,0.15);
+      color: #9EB49E;
     }
 
     .btn-logout {
       width: 100%;
       background: transparent;
-      color: var(--gris);
-      border: 1px solid var(--negro-borde);
+      color: #516651;
+      border: 1px solid #DDE8DD;
       border-radius: 11px;
       padding: 12px;
       font-size: 0.82rem;
@@ -455,9 +432,9 @@
     }
 
     .btn-logout:hover {
-      color: var(--blanco);
-      border-color: rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.03);
+      color: #EF4444;
+      border-color: rgba(239,68,68,0.30);
+      background: rgba(239,68,68,0.04);
     }
 
     /* -----------------------------------------------
@@ -467,7 +444,7 @@
       text-align: center;
       margin-top: 20px;
       font-size: 0.72rem;
-      color: rgba(255,255,255,0.15);
+      color: #9EB49E;
     }
 
     /* -----------------------------------------------
@@ -533,7 +510,7 @@
 
       <!-- Label del campo de clave -->
       <div class="label-clave">
-        <i class="bi bi-key-fill"></i>
+        <i class="bi bi-key-fill" style="color:var(--verde-primario,#16A34A)"></i>
         Clave de renovación mensual
       </div>
 
@@ -561,8 +538,8 @@
 
       <!-- Botón principal -->
       <button class="btn-renovar" id="btn-renovar" onclick="renovarLicencia()">
-        <span id="btn-texto">
-          <i class="bi bi-unlock-fill"></i>&nbsp; RENOVAR ACCESO
+        <span id="btn-texto" style="display:flex;align-items:center;gap:8px">
+          <i class="bi bi-unlock-fill"></i> RENOVAR ACCESO
         </span>
         <span id="btn-cargando" style="display:none;align-items:center;gap:8px">
           <span class="spinner-border spinner-border-sm"
@@ -645,13 +622,10 @@
           const fechaExp = new Date(Date.now() + (estado.segundos_restantes * 1000));
           _arrancarCountdownPagina(fechaExp);
 
-          // Actualizar textos para el modo "advertencia" (no bloqueado aún)
+          // Textos para el modo "advertencia" (no bloqueado aún)
           document.getElementById('subtitulo').innerHTML =
             'Tu licencia está próxima a vencer.<br/>Renueva ahora para no perder el acceso.';
         }
-
-        // Si ya está bloqueado, redirigir si por alguna razón tiene acceso
-        // (no debería llegar aquí, pero por seguridad)
 
       } catch (error) {
         // Sin conexión: mostrar mensaje genérico
@@ -674,7 +648,6 @@
         if (diff <= 0) {
           clearInterval(_countdownPageInterval);
           if (el) el.textContent = '00h 00m 00s';
-          // Recargar la página para que muestre el estado correcto bloqueado
           location.reload();
           return;
         }
@@ -713,8 +686,6 @@
 
       try {
         const respuesta = await api.post('/licensing/renovar', { clave });
-
-        // Éxito: mostrar mensaje y redirigir al dashboard
         mostrarAlerta('exito', respuesta.mensaje);
         document.getElementById('input-clave').value = '';
 
@@ -749,20 +720,17 @@
     // -----------------------------------------------
     // Cerrar sesión
     // -----------------------------------------------
-    async function cerrarSesion() {
-      await api.logout();
-    }
+    async function cerrarSesion() { await api.logout(); }
 
     // -----------------------------------------------
     // Funciones auxiliares de UI
     // -----------------------------------------------
     function mostrarAlerta(tipo, msg) {
       ocultarAlertas();
-      const id    = tipo === 'error' ? 'alerta-error' : 'alerta-exito';
+      const id    = tipo === 'error' ? 'alerta-error'     : 'alerta-exito';
       const msgId = tipo === 'error' ? 'alerta-error-msg' : 'alerta-exito-msg';
-      const el    = document.getElementById(id);
       document.getElementById(msgId).textContent = msg;
-      el.style.display = 'flex';
+      document.getElementById(id).style.display  = 'flex';
     }
 
     function ocultarAlertas() {
@@ -771,15 +739,15 @@
     }
 
     function setBtnCargando(activo) {
-      document.getElementById('btn-renovar').disabled = activo;
-      document.getElementById('btn-texto').style.display    = activo ? 'none'  : 'flex';
-      document.getElementById('btn-cargando').style.display = activo ? 'flex'  : 'none';
+      document.getElementById('btn-renovar').disabled        = activo;
+      document.getElementById('btn-texto').style.display     = activo ? 'none' : 'flex';
+      document.getElementById('btn-cargando').style.display  = activo ? 'flex' : 'none';
     }
 
     function agitarInput() {
       const input = document.getElementById('input-clave');
       input.classList.remove('error');
-      void input.offsetWidth; // Forzar reflow para reiniciar la animación
+      void input.offsetWidth; // Forzar reflow para reiniciar la animación CSS
       input.classList.add('error');
       setTimeout(() => input.classList.remove('error'), 500);
     }
