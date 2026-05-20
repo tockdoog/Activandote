@@ -1,0 +1,95 @@
+# ./docker-compose.yml
+# Orquestador principal de contenedores FitPro.
+# Levanta backend (FastAPI + Uvicorn) y frontend (Nginx con proxy inverso).
+#
+# Comandos útiles:
+#   Levantar:         docker compose up --build -d
+#   Ver logs:         docker compose logs -f
+#   Detener:          docker compose down
+#   Borrar volúmenes: docker compose down -v   ← BORRA LA BASE DE DATOS
+
+services:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # BACKEND — FastAPI + Uvicorn (Python 3.11)
+  # ─────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: fitpro_backend
+    restart: unless-stopped
+
+    # Variables de entorno cargadas desde docker/.env.
+    # HOST_IP se inyecta dinámicamente desde el script iniciar-fitpro.ps1
+    # usando: docker compose up -e HOST_IP=192.168.x.x
+    # Si no se pasa (arranque manual), queda vacío y el backend usa el socket UDP.
+    env_file:
+      - docker/.env
+
+    environment:
+      # HOST_IP se sobreescribe en tiempo de ejecución por el script .ps1.
+      # El valor vacío aquí es el fallback si se arranca sin el script.
+      - HOST_IP=${HOST_IP:-}
+
+    volumes:
+      - fitpro_db_data:/app/data
+
+    # El backend NO expone puertos al host — solo accesible internamente por nginx
+    networks:
+      - fitpro_red
+
+    stop_grace_period: 30s
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # FRONTEND — Nginx
+  # ─────────────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    container_name: fitpro_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    networks:
+      - fitpro_red
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+# ─────────────────────────────────────────────────────────────────────────
+# RED INTERNA
+# ─────────────────────────────────────────────────────────────────────────
+networks:
+  fitpro_red:
+    driver: bridge
+    name: fitpro_red
+
+# ─────────────────────────────────────────────────────────────────────────
+# VOLÚMENES NOMBRADOS
+# ─────────────────────────────────────────────────────────────────────────
+volumes:
+  fitpro_db_data:
+    name: fitpro_db_data

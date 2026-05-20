@@ -1,0 +1,614 @@
+<!-- frontend/patient-detail.html -->
+<!-- Vista detallada del paciente: perfil, indicadores, gráficas e historial de evaluaciones -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitPro | Detalle Paciente</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+
+  <style>
+    /* -----------------------------------------------
+       ESTILOS ESPECÍFICOS DEL DETALLE DE PACIENTE
+       ----------------------------------------------- */
+
+    /* Breadcrumb */
+    .breadcrumb-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #516651;
+      flex-wrap: wrap;
+    }
+
+    .breadcrumb-nav a {
+      color: #516651;
+      text-decoration: none;
+      transition: color var(--transicion-rapida);
+    }
+
+    .breadcrumb-nav a:hover { color: var(--verde-primario); }
+    .breadcrumb-nav .sep { color: var(--gris-300); font-size: 0.75rem; }
+    .breadcrumb-nav .actual { color: #111827; font-weight: 600; }
+
+    /* ── Tarjeta de perfil del paciente ── */
+    .perfil-card {
+      background: var(--blanco-puro);
+      border: 1px solid var(--gris-borde);
+      border-radius: var(--radio-xl);
+      padding: var(--sp-xl);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--sp-xl);
+      box-shadow: var(--sombra-sm);
+      margin-bottom: var(--sp-xl);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Banda decorativa verde superior */
+    .perfil-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--verde-primario), var(--verde-suave));
+    }
+
+    /* Avatar grande del paciente */
+    .perfil-avatar {
+      width: 80px;
+      height: 80px;
+      min-width: 80px;
+      background: var(--verde-translucido);
+      border: 2.5px solid var(--verde-borde);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--fuente-display);
+      font-size: 2rem;
+      font-weight: 800;
+      color: #15803D;
+      box-shadow: var(--sombra-verde);
+    }
+
+    /* Nombre principal del paciente */
+    .perfil-nombre {
+      font-family: var(--fuente-display);
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: #111827;
+      line-height: 1.1;
+      display: flex;
+      align-items: center;
+      gap: var(--sp-sm);
+      flex-wrap: wrap;
+    }
+
+    /* Fila de metadatos del perfil */
+    .perfil-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: var(--sp-sm);
+    }
+
+    .perfil-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.82rem;
+      color: #000000;
+      font-weight: 500;
+    }
+
+    .perfil-meta-item i {
+      color: var(--verde-primario);
+      font-size: 0.85rem;
+    }
+
+    /* Objetivos del paciente */
+    .perfil-objetivos {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin-top: var(--sp-sm);
+      font-size: 0.82rem;
+      color: #000000c1;
+      background: var(--gris-panel);
+      border-radius: var(--radio-md);
+      padding: 8px 12px;
+      border-left: 3px solid var(--verde-borde);
+    }
+
+    /* ── Encabezado de sección con barra lateral ── */
+    .seccion-encabezado {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--sp-md);
+    }
+
+    .seccion-titulo-verde {
+      font-family: var(--fuente-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: #111827;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .seccion-titulo-verde::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: var(--verde-primario);
+      border-radius: 3px;
+    }
+
+    /* ── Tarjetas de indicadores ── */
+    .indicador-card {
+      background: var(--blanco-puro);
+      border: 1px solid var(--gris-borde);
+      border-radius: var(--radio-xl);
+      padding: var(--sp-md) var(--sp-lg);
+      text-align: center;
+      transition: transform var(--transicion-normal), box-shadow var(--transicion-normal);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .indicador-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--verde-borde), transparent);
+    }
+
+    .indicador-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--sombra-card);
+    }
+
+    .indicador-valor {
+      font-family: var(--fuente-display);
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: #111827;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .indicador-label {
+      font-size: 0.68rem;
+      color: #374E37;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .indicador-delta {
+      font-size: 0.75rem;
+      margin-top: 4px;
+      font-weight: 600;
+      min-height: 18px;
+    }
+
+    /* ── Filas de evaluación con alerta ── */
+    .eval-fila-alerta {
+      background: rgba(239, 68, 68, 0.03) !important;
+      border-left: 3px solid var(--rojo-alerta) !important;
+    }
+
+    /* ── Número de evaluación en tabla ── */
+    .eval-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--verde-translucido);
+      border: 1.5px solid var(--verde-borde);
+      font-family: var(--fuente-display);
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #15803D;
+    }
+
+    /* ── Modal detalle evaluación ── */
+    .detalle-seccion-titulo {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--verde-primario);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding-bottom: 6px;
+      border-bottom: 1.5px solid var(--verde-borde);
+      margin: var(--sp-lg) 0 var(--sp-md);
+    }
+
+    .detalle-seccion-titulo:first-of-type {
+      margin-top: 0;
+    }
+
+    .detalle-fila {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--gris-100);
+      font-size: 0.875rem;
+    }
+
+    .detalle-fila:last-child { border-bottom: none; }
+
+    .detalle-fila-label { color: #000000; font-weight: 500; }
+    .detalle-fila-valor { color: #111827; font-weight: 700; }
+
+    /* Notas del entrenador en modal */
+    .detalle-notas {
+      background: var(--gris-panel);
+      border: 1px solid var(--gris-borde);
+      border-left: 3px solid var(--verde-primario);
+      border-radius: var(--radio-md);
+      padding: var(--sp-md);
+      font-size: 0.875rem;
+      color: #374E37;
+      margin-top: var(--sp-md);
+    }
+
+    .detalle-notas-titulo {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #374E37;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    @media (max-width: 768px) {
+      .perfil-card { flex-direction: column; }
+      .perfil-avatar { width: 60px; height: 60px; font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-logo">
+      <div class="sidebar-logo-icon">🏋️</div>
+      <div class="sidebar-logo-text">FIT<span>PRO</span></div>
+    </a>
+    <div class="sidebar-user">
+      <div class="sidebar-user-avatar" id="user-avatar">?</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="user-name">Cargando...</div>
+        <div class="sidebar-user-plan" id="user-plan">Plan Free</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Principal</div>
+      <a href="dashboard.html" class="nav-item">
+        <i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span>
+      </a>
+      <a href="patients.html" class="nav-item activo">
+        <i class="bi bi-people-fill"></i><span>Pacientes</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="nav-item" onclick="api.logout()" style="color:var(--rojo-alerta)">
+        <i class="bi bi-box-arrow-left"></i><span>Cerrar sesión</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="main-content">
+
+    <!-- Topbar con breadcrumb y acciones -->
+    <header class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-secundario btn-icon d-lg-none" onclick="toggleSidebar()">
+          <i class="bi bi-list" style="font-size:1.2rem"></i>
+        </button>
+
+        <!-- Breadcrumb -->
+        <nav class="breadcrumb-nav">
+          <a href="patients.html">
+            <i class="bi bi-people me-1"></i>Pacientes
+          </a>
+          <span class="sep"><i class="bi bi-chevron-right"></i></span>
+          <span class="actual" id="breadcrumb-nombre">Detalle</span>
+        </nav>
+      </div>
+
+      <div class="topbar-actions">
+        <!-- Exportar Excel -->
+        <button class="btn btn-secundario btn-sm" id="btn-exportar-excel">
+          <i class="bi bi-file-earmark-excel-fill me-1" style="color:#16A34A"></i>
+          <span class="d-none d-md-inline">Exportar Excel</span>
+        </button>
+
+        <!-- Nueva evaluación -->
+        <button class="btn btn-primario btn-sm" onclick="abrirModalEvaluacion()">
+          <i class="bi bi-clipboard2-plus-fill me-1"></i>
+          <span class="d-none d-sm-inline">Nueva Evaluación</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-container">
+
+      <!-- ══════════════════════════════════ -->
+      <!-- PERFIL DEL PACIENTE               -->
+      <!-- ══════════════════════════════════ -->
+      <div class="perfil-card" id="perfil-paciente">
+        <div class="d-flex align-items-center justify-content-center w-100" style="min-height:80px">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════ -->
+      <!-- ÚLTIMOS INDICADORES               -->
+      <!-- ══════════════════════════════════ -->
+      <div class="seccion-encabezado">
+        <div class="seccion-titulo-verde">Últimos Indicadores</div>
+        <span style="font-size:.78rem;color:#516651">
+          <i class="bi bi-clock me-1"></i>Evaluación más reciente
+        </span>
+      </div>
+
+      <div class="grid-4 mb-4" id="indicadores-grid">
+        <div class="indicador-card">
+          <div class="indicador-valor" id="ind-peso">—</div>
+          <div class="indicador-label">Peso (kg)</div>
+          <div class="indicador-delta" id="ind-peso-delta"></div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-valor" id="ind-imc">—</div>
+          <div class="indicador-label">IMC</div>
+          <div class="indicador-delta" id="ind-imc-delta"></div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-valor" id="ind-grasa">—</div>
+          <div class="indicador-label">% Grasa</div>
+          <div class="indicador-delta" id="ind-grasa-delta"></div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-valor" id="ind-musculo">—</div>
+          <div class="indicador-label">Músculo (kg)</div>
+          <div class="indicador-delta" id="ind-musculo-delta"></div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-valor" id="ind-oxigenacion">—</div>
+          <div class="indicador-label">Oxigenación %</div>
+          <div class="indicador-delta"></div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-valor" id="ind-fc">—</div>
+          <div class="indicador-label">FC (lpm)</div>
+          <div class="indicador-delta"></div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-valor" id="ind-ta">—</div>
+          <div class="indicador-label">Tensión Arterial</div>
+          <div class="indicador-delta"></div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-valor" id="ind-ruffier">—</div>
+          <div class="indicador-label">Índice Ruffier</div>
+          <div class="indicador-delta" id="ind-ruffier-clasif"></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════ -->
+      <!-- GRÁFICAS DE PROGRESO              -->
+      <!-- ══════════════════════════════════ -->
+      <div class="seccion-encabezado">
+        <div class="seccion-titulo-verde">Evolución Histórica</div>
+        <span style="font-size:.78rem;color:#516651">
+          <i class="bi bi-graph-up-arrow me-1"></i>Todas las evaluaciones
+        </span>
+      </div>
+
+      <div class="grid-2 mb-4">
+        <div class="grafica-container">
+          <div class="grafica-titulo">
+            <i class="bi bi-graph-up" style="color:var(--verde-primario)"></i>
+            Peso y Músculo (kg)
+          </div>
+          <canvas id="grafica-peso" height="200"></canvas>
+        </div>
+        <div class="grafica-container">
+          <div class="grafica-titulo">
+            <i class="bi bi-graph-down" style="color:var(--rojo-alerta)"></i>
+            % Grasa y % Agua
+          </div>
+          <canvas id="grafica-composicion" height="200"></canvas>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-4">
+        <div class="grafica-container">
+          <div class="grafica-titulo">
+            <i class="bi bi-heart-pulse" style="color:var(--rojo-alerta)"></i>
+            Frecuencia Cardíaca y Oxigenación
+          </div>
+          <canvas id="grafica-cardio" height="200"></canvas>
+        </div>
+        <div class="grafica-container">
+          <div class="grafica-titulo">
+            <i class="bi bi-calculator" style="color:var(--verde-primario)"></i>
+            IMC Histórico
+          </div>
+          <canvas id="grafica-imc" height="200"></canvas>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════ -->
+      <!-- HISTORIAL DE EVALUACIONES         -->
+      <!-- ══════════════════════════════════ -->
+      <div class="seccion-encabezado">
+        <div class="seccion-titulo-verde">Historial de Evaluaciones</div>
+      </div>
+
+      <div class="tabla-container">
+        <div class="tabla-responsive">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th style="width:48px">#</th>
+                <th>Fecha</th>
+                <th>Peso</th>
+                <th>IMC</th>
+                <th>% Grasa</th>
+                <th>Músculo</th>
+                <th>FC</th>
+                <th>T.A.</th>
+                <th>Ruffier</th>
+                <th>Condición</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-evaluaciones">
+              <tr>
+                <td colspan="12">
+                  <div class="estado-vacio" style="padding:2rem">
+                    <div class="spinner"></div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /.page-container -->
+  </main>
+</div><!-- /.app-layout -->
+
+<!-- Overlay sidebar móvil -->
+<div
+  id="sidebar-overlay"
+  onclick="toggleSidebar()"
+  style="display:none;position:fixed;inset:0;background:rgba(15,42,26,0.45);backdrop-filter:blur(2px);z-index:999"
+></div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- MODAL: VER DETALLE DE EVALUACIÓN        -->
+<!-- ════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-detalle-eval">
+  <div class="modal-caja" style="max-width:680px">
+
+    <div class="modal-header">
+      <h3 class="modal-titulo">
+        <i class="bi bi-clipboard2-check me-2" style="color:var(--verde-primario)"></i>
+        Detalle de Evaluación
+      </h3>
+      <button class="modal-cerrar" onclick="cerrarModal('modal-detalle-eval')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="modal-body" id="detalle-eval-body">
+      <!-- Generado dinámicamente -->
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-peligro btn-sm" id="btn-eliminar-eval">
+        <i class="bi bi-trash3 me-1"></i> Eliminar
+      </button>
+      <button class="btn btn-secundario" onclick="cerrarModal('modal-detalle-eval')">
+        Cerrar
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- MODAL: CONFIRMAR ELIMINAR EVALUACIÓN    -->
+<!-- ════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-eliminar-eval">
+  <div class="modal-caja" style="max-width:420px">
+
+    <div class="modal-header">
+      <h3 class="modal-titulo" style="color:var(--rojo-alerta)">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        Eliminar evaluación
+      </h3>
+      <button class="modal-cerrar" onclick="cerrarModal('modal-eliminar-eval')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="text-center mb-4">
+        <div style="
+          width:60px;height:60px;
+          background:var(--rojo-bg);
+          border-radius:50%;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          font-size:1.6rem
+        ">🗑️</div>
+      </div>
+
+      <p style="color:#111827;font-weight:600;text-align:center;font-size:.95rem;margin-bottom:8px">
+        ¿Eliminar la evaluación del
+        <strong id="fecha-eval-eliminar" style="color:var(--rojo-alerta)"></strong>?
+      </p>
+      <p style="font-size:.85rem;color:#516651;text-align:center">
+        Esta acción es permanente y no se puede deshacer.
+      </p>
+    </div>
+
+    <div class="modal-footer" style="justify-content:center;gap:var(--sp-lg)">
+      <button class="btn btn-secundario" onclick="cerrarModal('modal-eliminar-eval')">
+        Cancelar
+      </button>
+      <button
+        class="btn btn-peligro"
+        id="btn-confirmar-eliminar-eval"
+        onclick="confirmarEliminarEval()"
+      >
+        <i class="bi bi-trash3 me-1"></i> Eliminar permanentemente
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<!-- Cliente API -->
+<script src="js/api.js"></script>
+<!-- Verificación de licencia — debe ir ANTES de evaluations.js -->
+<script src="js/license.js"></script>
+<!-- Lógica compartida de evaluaciones y detalle -->
+<script src="js/evaluations.js"></script>
+
+</body>
+</html>

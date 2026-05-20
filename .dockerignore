@@ -1,0 +1,70 @@
+# ./.dockerignore
+# Archivos y carpetas excluidos del contexto de build de Docker.
+# Reduce el tamaño del contexto enviado al daemon y acelera los builds.
+# Sin este archivo, Docker envía todo el proyecto (~100MB+) al daemon
+# aunque los Dockerfiles solo necesiten una fracción de eso.
+
+# ── Control de versiones ──────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# ── Caché de Python ───────────────────────────────────────────────────
+# Nunca se necesitan en producción; Python los regenera en el contenedor
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# ── Entornos virtuales ────────────────────────────────────────────────
+# El contenedor instala sus propias dependencias desde requirements.txt
+venv/
+.venv/
+env/
+.env/
+
+# ── Base de datos local de desarrollo ────────────────────────────────
+# En producción Docker se usa el volumen persistente fitpro_db_data
+# montado en /app/data/ dentro del contenedor
+backend/fitpro.db
+
+# ── Archivos de entorno ───────────────────────────────────────────────
+# El .env real NUNCA debe estar en el contexto de build.
+# docker-compose lo inyecta directamente al contenedor vía env_file.
+.env
+.env.*
+!docker/.env.example
+
+# ── IDE y editores ────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Tests y cobertura ─────────────────────────────────────────────────
+# Los tests no pertenecen a la imagen de producción
+tests/
+test_*.py
+*_test.py
+pytest.ini
+setup.cfg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Documentación ─────────────────────────────────────────────────────
+# Se excluyen todos los .md excepto el README interno de Docker
+*.md
+!docker/README.md
+
+# ── Logs ──────────────────────────────────────────────────────────────
+*.log
+logs/

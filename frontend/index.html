@@ -1,0 +1,706 @@
+<!-- ./frontend/index.html -->
+<!-- Página de autenticación: Login y Registro de entrenadores FitPro -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="FitPro - Sistema profesional de gestión fitness" />
+  <title>FitPro | Acceso</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <!-- Fuentes: Inter + Barlow Condensed -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Estilos globales -->
+  <link rel="stylesheet" href="css/main.css" />
+
+  <style>
+    /* -----------------------------------------------
+       PÁGINA DE LOGIN — estilos específicos
+       ----------------------------------------------- */
+
+    /* Fondo dividido: imagen fitness a la izquierda, formulario a la derecha */
+    body {
+      background: var(--gris-fondo);
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      overflow: hidden;
+    }
+
+    /* ── Panel izquierdo: imagen de fondo deportiva ── */
+    .auth-hero {
+      flex: 1;
+      position: relative;
+      display: none;
+      overflow: hidden;
+      background: #0F2A1A;
+    }
+
+    /* Imagen de fondo con overlay verde oscuro
+       RUTA CORREGIDA: /img/ en lugar de /backend/img/
+       En Docker, nginx sirve las imágenes desde /usr/share/nginx/html/img/ */
+    .auth-hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(15,42,26,0.85) 0%, rgba(21,128,61,0.60) 100%),
+        url('/img/Activandote.jpg') center/cover no-repeat;
+    }
+
+    /* Patrón de puntos decorativo sobre la imagen */
+    .auth-hero-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* Contenido sobre la imagen hero */
+    .auth-hero-content {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 40px;
+    }
+
+    /* Logo en el hero */
+    .auth-hero-logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .auth-hero-logo-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--verde-primario);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      box-shadow: 0 4px 20px rgba(22,163,74,0.4);
+    }
+
+    .auth-hero-logo-text {
+      font-family: var(--fuente-display);
+      font-size: 2rem;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: 3px;
+      line-height: 1;
+    }
+
+    .auth-hero-logo-text span { color: var(--verde-suave); }
+
+    /* Cita motivacional en el hero */
+    .auth-hero-quote { color: rgba(255,255,255,0.95); }
+
+    .auth-hero-quote blockquote {
+      font-family: var(--fuente-display);
+      font-size: 2.2rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin: 0 0 16px;
+      color: #FFFFFF;
+    }
+
+    .auth-hero-quote blockquote span { color: var(--verde-suave); }
+
+    .auth-hero-quote p {
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.70);
+      margin: 0;
+      font-weight: 400;
+    }
+
+    /* Estadísticas pequeñas al pie del hero */
+    .auth-hero-stats { display: flex; gap: 32px; }
+
+    .auth-hero-stat-valor {
+      font-family: var(--fuente-display);
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #FFFFFF;
+      line-height: 1;
+    }
+
+    .auth-hero-stat-label {
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.60);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 3px;
+    }
+
+    /* ── Panel derecho: formulario ── */
+    .auth-form-panel {
+      width: 100%;
+      max-width: 480px;
+      background: var(--blanco-puro);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 48px 40px;
+      position: relative;
+      overflow-y: auto;
+      box-shadow: -4px 0 40px rgba(0,0,0,0.06);
+    }
+
+    /* Barra verde superior del panel */
+    .auth-form-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--verde-primario), var(--verde-suave));
+    }
+
+    /* Encabezado del formulario */
+    .auth-header { margin-bottom: 32px; }
+
+    .auth-header-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .auth-header-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--verde-primario);
+      border-radius: var(--radio-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 4px 16px rgba(22,163,74,0.30);
+    }
+
+    .auth-header-title {
+      font-family: var(--fuente-display);
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #111827;
+      letter-spacing: 2px;
+      line-height: 1;
+    }
+
+    .auth-header-title span { color: var(--verde-primario); }
+
+    .auth-header-subtitle {
+      font-size: 0.82rem;
+      color: #516651;
+      font-weight: 500;
+    }
+
+    /* Saludo dinámico según la pestaña activa */
+    .auth-welcome-title {
+      font-family: var(--fuente-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+
+    .auth-welcome-sub {
+      font-size: 0.875rem;
+      color: #374E37;
+      font-weight: 400;
+    }
+
+    /* ── Pestañas Login / Registro ── */
+    .auth-tabs {
+      display: flex;
+      background: var(--gris-100);
+      border-radius: var(--radio-lg);
+      padding: 4px;
+      margin-bottom: 28px;
+      gap: 4px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      text-align: center;
+      padding: 9px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #374E37;
+      border-radius: var(--radio-md);
+      transition: all var(--transicion-normal);
+      user-select: none;
+      border: none;
+      background: transparent;
+      font-family: var(--fuente-cuerpo);
+    }
+
+    .auth-tab.activo {
+      background: var(--blanco-puro);
+      color: var(--verde-primario);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    /* ── Paneles de formulario ── */
+    .auth-panel { display: none; }
+    .auth-panel.activo {
+      display: block;
+      animation: fadeIn 0.25s ease;
+    }
+
+    /* ── Input de contraseña con ojo ── */
+    .input-password-wrapper { position: relative; }
+    .input-password-wrapper .form-control { padding-right: 46px; }
+
+    .btn-toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #516651;
+      cursor: pointer;
+      padding: 0;
+      font-size: 1rem;
+      transition: color var(--transicion-rapida);
+      line-height: 1;
+    }
+
+    .btn-toggle-password:hover { color: var(--verde-primario); }
+
+    /* ── Barra de fortaleza de contraseña ── */
+    .strength-wrapper { margin-top: 8px; }
+
+    .strength-bar {
+      height: 4px;
+      border-radius: var(--radio-pill);
+      background: var(--gris-200);
+      overflow: hidden;
+    }
+
+    .strength-bar-fill {
+      height: 100%;
+      border-radius: var(--radio-pill);
+      transition: width 0.35s ease, background-color 0.35s ease;
+      width: 0%;
+    }
+
+    .strength-text {
+      font-size: 0.72rem;
+      margin-top: 5px;
+      color: #374E37;
+      font-weight: 600;
+    }
+
+    /* ── Separador visual ── */
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gris-200);
+    }
+
+    .auth-divider span {
+      font-size: 0.75rem;
+      color: #516651;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* ── Link ── */
+    .auth-link {
+      color: var(--verde-primario);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: color var(--transicion-rapida);
+    }
+
+    .auth-link:hover {
+      color: var(--verde-oscuro);
+      text-decoration: underline;
+    }
+
+    /* ── Beneficios debajo del formulario ── */
+    .auth-benefits {
+      display: flex;
+      gap: 16px;
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid var(--gris-200);
+    }
+
+    .auth-benefit-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: #374E37;
+      font-weight: 500;
+    }
+
+    .auth-benefit-item i {
+      color: var(--verde-primario);
+      font-size: 0.9rem;
+    }
+
+    /* ── Versión ── */
+    .auth-version {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.72rem;
+      color: #516651;
+    }
+
+    /* ── Animación de entrada de la card ── */
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .auth-form-panel { animation: slideInRight 0.4s ease; }
+
+    /* ── Responsive: mostrar hero en desktop ── */
+    @media (min-width: 1024px) {
+      .auth-hero { display: flex; }
+      .auth-form-panel { max-width: 440px; }
+    }
+
+    @media (max-width: 480px) {
+      .auth-form-panel { padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Panel izquierdo: imagen hero fitness -->
+  <div class="auth-hero">
+    <div class="auth-hero-bg"></div>
+    <div class="auth-hero-content">
+
+      <!-- Logo sobre la imagen -->
+      <div class="auth-hero-logo">
+        <div class="auth-hero-logo-icon">🏋️</div>
+        <div class="auth-hero-logo-text">FIT<span>PRO</span></div>
+      </div>
+
+      <!-- Cita motivacional central -->
+      <div class="auth-hero-quote">
+        <blockquote>
+          El cuerpo<br/>
+          logra lo que<br/>
+          la mente <span>cree.</span>
+        </blockquote>
+        <p>Monitorea el progreso real de tus atletas.<br/>Datos que transforman entrenamientos.</p>
+      </div>
+
+      <!-- Estadísticas de credibilidad -->
+      <div class="auth-hero-stats">
+        <div>
+          <div class="auth-hero-stat-valor">100%</div>
+          <div class="auth-hero-stat-label">Seguimiento clínico</div>
+        </div>
+        <div>
+          <div class="auth-hero-stat-valor">∞</div>
+          <div class="auth-hero-stat-label">Evaluaciones históricas</div>
+        </div>
+        <div>
+          <div class="auth-hero-stat-valor">PWA</div>
+          <div class="auth-hero-stat-label">Móvil y escritorio</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Panel derecho: formulario -->
+  <div class="auth-form-panel">
+
+    <!-- Logo solo visible en móvil -->
+    <div class="auth-header">
+      <div class="auth-header-logo d-lg-none">
+        <div class="auth-header-icon">🏋️</div>
+        <div>
+          <div class="auth-header-title">FIT<span>PRO</span></div>
+          <div class="auth-header-subtitle">Sistema de Gestión Fitness</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pestañas Login / Registro -->
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab activo" id="tab-login" onclick="cambiarTab('login')" role="tab">
+        <i class="bi bi-box-arrow-in-right me-1"></i> Ingresar
+      </button>
+      <button class="auth-tab" id="tab-registro" onclick="cambiarTab('registro')" role="tab">
+        <i class="bi bi-person-plus me-1"></i> Registrarse
+      </button>
+    </div>
+
+    <!-- ========================= -->
+    <!-- FORMULARIO DE LOGIN       -->
+    <!-- ========================= -->
+    <div class="auth-panel activo" id="panel-login">
+
+      <div class="mb-4">
+        <div class="auth-welcome-title">Bienvenido de nuevo</div>
+        <div class="auth-welcome-sub">Ingresa tus credenciales para continuar</div>
+      </div>
+
+      <!-- Alerta de error -->
+      <div id="error-login" class="alerta alerta-error mb-3" style="display:none">
+        <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+        <span id="error-login-msg"></span>
+      </div>
+
+      <form id="form-login" novalidate autocomplete="on">
+
+        <!-- Campo: Email -->
+        <div class="form-group">
+          <label class="form-label" for="login-email">Correo electrónico</label>
+          <div class="position-relative">
+            <input
+              type="email"
+              id="login-email"
+              class="form-control"
+              placeholder="correo@ejemplo.com"
+              autocomplete="email"
+              required
+              style="padding-left: 42px"
+            />
+            <i class="bi bi-envelope position-absolute"
+               style="left:14px;top:50%;transform:translateY(-50%);color:#5C7A5C;font-size:.9rem;pointer-events:none"></i>
+          </div>
+          <div class="campo-error" id="error-login-email">Ingrese un correo válido</div>
+        </div>
+
+        <!-- Campo: Contraseña -->
+        <div class="form-group">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label mb-0" for="login-password">Contraseña</label>
+            <a href="#" class="auth-link" style="font-size:.78rem">¿Olvidaste tu contraseña?</a>
+          </div>
+          <div class="input-password-wrapper">
+            <input
+              type="password"
+              id="login-password"
+              class="form-control"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              required
+              style="padding-left: 42px"
+            />
+            <i class="bi bi-lock position-absolute"
+               style="left:14px;top:50%;transform:translateY(-50%);color:#5C7A5C;font-size:.9rem;pointer-events:none"></i>
+            <button type="button" class="btn-toggle-password" onclick="togglePassword('login-password', this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div class="campo-error" id="error-login-password">Ingrese su contraseña</div>
+        </div>
+
+        <!-- Botón de login -->
+        <button type="submit" class="btn btn-primario w-100" style="height:46px;font-size:.95rem" id="btn-login">
+          <span id="btn-login-texto">
+            <i class="bi bi-box-arrow-in-right me-2"></i> Ingresar al sistema
+          </span>
+          <span id="btn-login-cargando" style="display:none;align-items:center;gap:8px">
+            <span class="spinner-border spinner-border-sm"></span> Verificando...
+          </span>
+        </button>
+
+      </form>
+
+      <p class="text-center mt-4 mb-0" style="font-size:.875rem;color:#374E37">
+        ¿No tienes cuenta?
+        <a href="#" class="auth-link" onclick="cambiarTab('registro')">Regístrate gratis</a>
+      </p>
+
+    </div><!-- /#panel-login -->
+
+    <!-- ========================= -->
+    <!-- FORMULARIO DE REGISTRO    -->
+    <!-- ========================= -->
+    <div class="auth-panel" id="panel-registro">
+
+      <div class="mb-4">
+        <div class="auth-welcome-title">Crea tu cuenta</div>
+        <div class="auth-welcome-sub">Comienza gratis, sin tarjeta de crédito</div>
+      </div>
+
+      <!-- Alerta de error -->
+      <div id="error-registro" class="alerta alerta-error mb-3" style="display:none">
+        <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+        <span id="error-registro-msg"></span>
+      </div>
+
+      <form id="form-registro" novalidate autocomplete="off">
+
+        <!-- Campo: Nombre completo -->
+        <div class="form-group">
+          <label class="form-label" for="reg-nombre">Nombre completo</label>
+          <div class="position-relative">
+            <input
+              type="text"
+              id="reg-nombre"
+              class="form-control"
+              placeholder="Carlos Rodríguez"
+              autocomplete="name"
+              required minlength="3"
+              style="padding-left: 42px"
+            />
+            <i class="bi bi-person position-absolute"
+               style="left:14px;top:50%;transform:translateY(-50%);color:#5C7A5C;font-size:.9rem;pointer-events:none"></i>
+          </div>
+          <div class="campo-error" id="error-reg-nombre">Mínimo 3 caracteres</div>
+        </div>
+
+        <!-- Fila: Email + Teléfono -->
+        <div class="grid-2" style="gap:var(--sp-md)">
+          <div class="form-group">
+            <label class="form-label" for="reg-email">Correo electrónico</label>
+            <input
+              type="email"
+              id="reg-email"
+              class="form-control"
+              placeholder="correo@ejemplo.com"
+              autocomplete="email"
+              required
+            />
+            <div class="campo-error" id="error-reg-email">Correo inválido</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-telefono">
+              Teléfono <span style="color:#5C7A5C;font-size:.72rem;font-weight:400">(opcional)</span>
+            </label>
+            <input
+              type="tel"
+              id="reg-telefono"
+              class="form-control"
+              placeholder="3001234567"
+              maxlength="20"
+            />
+          </div>
+        </div>
+
+        <!-- Campo: Contraseña con indicador de fortaleza -->
+        <div class="form-group">
+          <label class="form-label" for="reg-password">Contraseña</label>
+          <div class="input-password-wrapper">
+            <input
+              type="password"
+              id="reg-password"
+              class="form-control"
+              placeholder="Mínimo 8 caracteres"
+              autocomplete="new-password"
+              required minlength="8"
+              oninput="evaluarFortaleza(this.value)"
+              style="padding-left: 42px"
+            />
+            <i class="bi bi-lock position-absolute"
+               style="left:14px;top:50%;transform:translateY(-50%);color:#5C7A5C;font-size:.9rem;pointer-events:none"></i>
+            <button type="button" class="btn-toggle-password" onclick="togglePassword('reg-password', this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <!-- Barra de fortaleza de contraseña -->
+          <div class="strength-wrapper">
+            <div class="strength-bar">
+              <div class="strength-bar-fill" id="strength-fill"></div>
+            </div>
+            <div class="strength-text" id="strength-text">Ingresa una contraseña</div>
+          </div>
+          <div class="campo-error" id="error-reg-password">Mínimo 8 caracteres, mayúscula y número</div>
+        </div>
+
+        <!-- Campo: Confirmar contraseña -->
+        <div class="form-group">
+          <label class="form-label" for="reg-confirm">Confirmar contraseña</label>
+          <div class="input-password-wrapper">
+            <input
+              type="password"
+              id="reg-confirm"
+              class="form-control"
+              placeholder="Repite tu contraseña"
+              autocomplete="new-password"
+              required
+              style="padding-left: 42px"
+            />
+            <i class="bi bi-lock-fill position-absolute"
+               style="left:14px;top:50%;transform:translateY(-50%);color:#5C7A5C;font-size:.9rem;pointer-events:none"></i>
+            <button type="button" class="btn-toggle-password" onclick="togglePassword('reg-confirm', this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div class="campo-error" id="error-reg-confirm">Las contraseñas no coinciden</div>
+        </div>
+
+        <!-- Botón de registro -->
+        <button type="submit" class="btn btn-primario w-100" style="height:46px;font-size:.95rem" id="btn-registro">
+          <span id="btn-reg-texto">
+            <i class="bi bi-person-check me-2"></i> Crear cuenta gratuita
+          </span>
+          <span id="btn-reg-cargando" style="display:none;align-items:center;gap:8px">
+            <span class="spinner-border spinner-border-sm"></span> Creando cuenta...
+          </span>
+        </button>
+
+      </form>
+
+      <p class="text-center mt-3 mb-0" style="font-size:.875rem;color:#374E37">
+        ¿Ya tienes cuenta?
+        <a href="#" class="auth-link" onclick="cambiarTab('login')">Inicia sesión</a>
+      </p>
+
+    </div><!-- /#panel-registro -->
+
+    <!-- Beneficios destacados -->
+    <div class="auth-benefits">
+      <div class="auth-benefit-item">
+        <i class="bi bi-shield-check"></i>
+        <span>Datos seguros</span>
+      </div>
+      <div class="auth-benefit-item">
+        <i class="bi bi-phone"></i>
+        <span>App móvil</span>
+      </div>
+      <div class="auth-benefit-item">
+        <i class="bi bi-graph-up-arrow"></i>
+        <span>Progreso en tiempo real</span>
+      </div>
+    </div>
+
+    <!-- Versión -->
+    <div class="auth-version">FitPro v1.0.0 · Gestión Fitness Profesional</div>
+
+  </div><!-- /.auth-form-panel -->
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Cliente API centralizado -->
+  <script src="js/api.js"></script>
+  <!--Licensia-->
+  <script src="js/license.js"></script>
+  <!-- Lógica de autenticación -->
+  <script src="js/auth.js"></script>
+
+</body>
+</html>

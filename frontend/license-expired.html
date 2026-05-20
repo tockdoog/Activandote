@@ -1,0 +1,788 @@
+<!-- frontend/license-expired.html -->
+<!-- Página de bloqueo cuando la licencia mensual ha vencido -->
+<!-- Paleta: Rojo #CC0000 / Negro #0D0D0D / Blanco #FFFFFF -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitPro | Licencia Vencida</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <!-- Fuentes -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Estilos globales -->
+  <link rel="stylesheet" href="css/main.css" />
+
+  <style>
+    /* -----------------------------------------------
+       VARIABLES Y RESET
+       ----------------------------------------------- */
+    :root {
+      --rojo:        #CC0000;
+      --rojo-oscuro: #8B0000;
+      --rojo-suave:  #FF4444;
+      --negro:       #0D0D0D;
+      --negro-card:  #141414;
+      --negro-borde: #242424;
+      --blanco:      #FFFFFF;
+      --gris:        #999999;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* -----------------------------------------------
+       BODY — fondo negro con destellos rojos
+       ----------------------------------------------- */
+    body {
+      background: var(--negro);
+      color: var(--blanco);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Destellos rojos en las esquinas del fondo */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 15% 50%, rgba(204,0,0,0.14) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 15%, rgba(204,0,0,0.09) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 85%, rgba(204,0,0,0.06) 0%, transparent 45%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Patrón de puntos sutil */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* -----------------------------------------------
+       WRAPPER Y CARD PRINCIPAL
+       ----------------------------------------------- */
+    .bloqueo-wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+    }
+
+    .bloqueo-card {
+      background: var(--negro-card);
+      border: 1px solid var(--negro-borde);
+      border-radius: 22px;
+      padding: 40px 36px 32px;
+      box-shadow:
+        0 0 0 1px rgba(204,0,0,0.12),
+        0 32px 80px rgba(0,0,0,0.7),
+        0 0 60px rgba(204,0,0,0.06);
+      animation: cardEntrada 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes cardEntrada {
+      from { opacity: 0; transform: translateY(28px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+
+    /* Línea degradada roja en la parte superior de la card */
+    .bloqueo-card::before {
+      content: '';
+      display: block;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--rojo), var(--rojo-suave), var(--rojo), transparent);
+      border-radius: 22px 22px 0 0;
+      margin: -40px -36px 36px;
+    }
+
+    /* -----------------------------------------------
+       SECCIÓN DEL LOGO
+       ----------------------------------------------- */
+    .logo-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      opacity: 0.5;
+    }
+
+    .logo-icono {
+      width: 32px;
+      height: 32px;
+      background: var(--rojo);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+
+    .logo-texto {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--blanco);
+      letter-spacing: 3px;
+    }
+
+    /* -----------------------------------------------
+       ÍCONO CENTRAL CON ANIMACIÓN DE PULSO
+       ----------------------------------------------- */
+    .icono-bloqueo-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .icono-bloqueo {
+      width: 90px;
+      height: 90px;
+      background: rgba(204,0,0,0.10);
+      border: 2px solid rgba(204,0,0,0.25);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      position: relative;
+      animation: pulsoIcono 3s ease-in-out infinite;
+    }
+
+    /* Anillo exterior pulsante */
+    .icono-bloqueo::after {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      border: 1px solid rgba(204,0,0,0.15);
+      animation: pulsoAnillo 3s ease-in-out infinite;
+    }
+
+    @keyframes pulsoIcono {
+      0%, 100% { box-shadow: 0 0 0 0   rgba(204,0,0,0.25); }
+      50%       { box-shadow: 0 0 0 14px rgba(204,0,0,0);   }
+    }
+
+    @keyframes pulsoAnillo {
+      0%, 100% { transform: scale(1);    opacity: 0.8; }
+      50%       { transform: scale(1.1); opacity: 0.2; }
+    }
+
+    /* -----------------------------------------------
+       TÍTULO Y SUBTÍTULO
+       ----------------------------------------------- */
+    .titulo-bloqueo {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--blanco);
+      text-align: center;
+      letter-spacing: 1.5px;
+      line-height: 1.1;
+      margin-bottom: 10px;
+    }
+
+    .titulo-bloqueo span { color: var(--rojo-suave); }
+
+    .subtitulo-bloqueo {
+      text-align: center;
+      color: var(--gris);
+      font-size: 0.875rem;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    /* -----------------------------------------------
+       COUNTDOWN PRINCIPAL (cuando la licencia aún no venció
+       pero está en la página de renovación)
+       ----------------------------------------------- */
+    .countdown-principal {
+      background: rgba(204,0,0,0.07);
+      border: 1px solid rgba(204,0,0,0.18);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      text-align: center;
+      display: none; /* Se muestra solo si hay tiempo restante */
+    }
+
+    .countdown-label {
+      font-size: 0.72rem;
+      color: var(--gris);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+    }
+
+    .countdown-tiempo {
+      font-family: 'Barlow Condensed', monospace;
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--rojo-suave);
+      letter-spacing: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* -----------------------------------------------
+       BADGE DE ESTADO DE LA LICENCIA
+       ----------------------------------------------- */
+    .badge-estado {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: rgba(204,0,0,0.08);
+      border: 1px solid rgba(204,0,0,0.20);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 24px;
+    }
+
+    .badge-estado-icono {
+      font-size: 1.3rem;
+      color: var(--rojo-suave);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .badge-estado-texto strong {
+      display: block;
+      color: var(--blanco);
+      font-size: 0.875rem;
+      margin-bottom: 3px;
+    }
+
+    .badge-estado-texto span {
+      color: var(--gris);
+      font-size: 0.80rem;
+      line-height: 1.4;
+    }
+
+    /* -----------------------------------------------
+       FORMULARIO DE RENOVACIÓN
+       ----------------------------------------------- */
+    .label-clave {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--gris);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 10px;
+    }
+
+    .input-wrapper { position: relative; margin-bottom: 12px; }
+
+    .input-clave {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--negro-borde);
+      border-radius: 11px;
+      padding: 14px 50px 14px 16px;
+      color: var(--blanco);
+      font-size: 0.95rem;
+      font-family: 'Inter', monospace;
+      letter-spacing: 0.5px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-clave:focus {
+      border-color: var(--rojo);
+      box-shadow: 0 0 0 3px rgba(204,0,0,0.18);
+    }
+
+    .input-clave.error {
+      border-color: var(--rojo-suave);
+      box-shadow: 0 0 0 3px rgba(255,68,68,0.15);
+      animation: shake 0.4s ease;
+    }
+
+    .input-clave::placeholder { color: rgba(255,255,255,0.20); }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%       { transform: translateX(-6px); }
+      40%       { transform: translateX(6px); }
+      60%       { transform: translateX(-4px); }
+      80%       { transform: translateX(4px); }
+    }
+
+    /* Ícono dentro del input */
+    .input-icono {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255,255,255,0.20);
+      font-size: 1rem;
+      pointer-events: none;
+    }
+
+    /* Toggle de visibilidad de la clave */
+    .btn-toggle-clave {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.35);
+      cursor: pointer;
+      padding: 0;
+      font-size: 1rem;
+      transition: color 0.2s;
+      line-height: 1;
+    }
+
+    .btn-toggle-clave:hover { color: var(--blanco); }
+
+    /* Botón principal de renovación */
+    .btn-renovar {
+      width: 100%;
+      background: var(--rojo);
+      color: var(--blanco);
+      border: none;
+      border-radius: 11px;
+      padding: 15px;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: 'Barlow Condensed', sans-serif;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-renovar:hover:not(:disabled) {
+      background: var(--rojo-oscuro);
+      box-shadow: 0 6px 24px rgba(204,0,0,0.40);
+    }
+
+    .btn-renovar:active:not(:disabled) { transform: scale(0.98); }
+
+    .btn-renovar:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* -----------------------------------------------
+       ALERTAS DE ERROR Y ÉXITO
+       ----------------------------------------------- */
+    .alerta {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 0.82rem;
+      margin-bottom: 12px;
+      animation: fadeInUp 0.25s ease;
+    }
+
+    .alerta-error {
+      background: rgba(204,0,0,0.12);
+      border: 1px solid rgba(204,0,0,0.28);
+      color: #FF9999;
+    }
+
+    .alerta-exito {
+      background: rgba(0,160,70,0.10);
+      border: 1px solid rgba(0,160,70,0.25);
+      color: #66E8A0;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* -----------------------------------------------
+       DIVISOR Y BOTÓN DE CERRAR SESIÓN
+       ----------------------------------------------- */
+    .divisor {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .divisor::before, .divisor::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--negro-borde);
+    }
+
+    .divisor span {
+      font-size: 0.70rem;
+      color: rgba(255,255,255,0.15);
+    }
+
+    .btn-logout {
+      width: 100%;
+      background: transparent;
+      color: var(--gris);
+      border: 1px solid var(--negro-borde);
+      border-radius: 11px;
+      padding: 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .btn-logout:hover {
+      color: var(--blanco);
+      border-color: rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.03);
+    }
+
+    /* -----------------------------------------------
+       PIE DE PÁGINA
+       ----------------------------------------------- */
+    .pie-card {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.15);
+    }
+
+    /* -----------------------------------------------
+       RESPONSIVE
+       ----------------------------------------------- */
+    @media (max-width: 480px) {
+      .bloqueo-card { padding: 32px 22px 28px; }
+      .titulo-bloqueo { font-size: 1.7rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bloqueo-wrapper">
+    <div class="bloqueo-card">
+
+      <!-- Logo pequeño en la parte superior -->
+      <div class="logo-area">
+        <div class="logo-icono">🏋️</div>
+        <div class="logo-texto">FITPRO</div>
+      </div>
+
+      <!-- Ícono de bloqueo con pulso -->
+      <div class="icono-bloqueo-wrapper">
+        <div class="icono-bloqueo">🔒</div>
+      </div>
+
+      <!-- Título -->
+      <div class="titulo-bloqueo">
+        Acceso <span>Bloqueado</span>
+      </div>
+      <div class="subtitulo-bloqueo" id="subtitulo">
+        Tu licencia mensual ha vencido.<br/>
+        Ingresa la clave para renovar el acceso.
+      </div>
+
+      <!-- Countdown (visible solo si queda tiempo antes del vencimiento) -->
+      <div class="countdown-principal" id="countdown-box">
+        <div class="countdown-label">⏱ Tiempo restante de acceso</div>
+        <div class="countdown-tiempo" id="countdown-tiempo">--:--:--</div>
+      </div>
+
+      <!-- Badge con info del vencimiento -->
+      <div class="badge-estado">
+        <i class="bi bi-calendar-x badge-estado-icono"></i>
+        <div class="badge-estado-texto">
+          <strong id="badge-fecha">Verificando licencia...</strong>
+          <span id="badge-mensaje">Por favor espera un momento.</span>
+        </div>
+      </div>
+
+      <!-- Alerta de error -->
+      <div class="alerta alerta-error" id="alerta-error">
+        <i class="bi bi-x-circle-fill"></i>
+        <span id="alerta-error-msg">Clave incorrecta.</span>
+      </div>
+
+      <!-- Alerta de éxito -->
+      <div class="alerta alerta-exito" id="alerta-exito">
+        <i class="bi bi-check-circle-fill"></i>
+        <span id="alerta-exito-msg">¡Acceso renovado!</span>
+      </div>
+
+      <!-- Label del campo de clave -->
+      <div class="label-clave">
+        <i class="bi bi-key-fill"></i>
+        Clave de renovación mensual
+      </div>
+
+      <!-- Input de clave con toggle de visibilidad -->
+      <div class="input-wrapper">
+        <input
+          type="password"
+          id="input-clave"
+          class="input-clave"
+          placeholder="Ingresa tu clave de acceso"
+          maxlength="200"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button
+          type="button"
+          class="btn-toggle-clave"
+          onclick="toggleVerClave()"
+          id="btn-ver-clave"
+          title="Mostrar/ocultar clave"
+        >
+          <i class="bi bi-eye" id="icono-ver-clave"></i>
+        </button>
+      </div>
+
+      <!-- Botón principal -->
+      <button class="btn-renovar" id="btn-renovar" onclick="renovarLicencia()">
+        <span id="btn-texto">
+          <i class="bi bi-unlock-fill"></i>&nbsp; RENOVAR ACCESO
+        </span>
+        <span id="btn-cargando" style="display:none;align-items:center;gap:8px">
+          <span class="spinner-border spinner-border-sm"
+                style="width:15px;height:15px;border-width:2px"></span>
+          Verificando...
+        </span>
+      </button>
+
+      <!-- Divisor -->
+      <div class="divisor"><span>o</span></div>
+
+      <!-- Cerrar sesión -->
+      <button class="btn-logout" onclick="cerrarSesion()">
+        <i class="bi bi-box-arrow-left"></i>
+        Cerrar sesión
+      </button>
+
+      <!-- Pie -->
+      <div class="pie-card" id="pie-usuario">FitPro · Licencia Mensual</div>
+
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- API client -->
+  <script src="js/api.js"></script>
+
+  <script>
+    // -----------------------------------------------
+    // Variable global para el countdown de esta página
+    // -----------------------------------------------
+    let _countdownPageInterval = null;
+
+    // -----------------------------------------------
+    // INICIALIZACIÓN al cargar la página
+    // -----------------------------------------------
+    document.addEventListener('DOMContentLoaded', async () => {
+
+      // Sin sesión: volver al login
+      if (!api.estaAutenticado()) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // Mostrar nombre del usuario en el pie
+      const usuario = api.getUsuario();
+      if (usuario) {
+        document.getElementById('pie-usuario').textContent =
+          `${usuario.nombre_completo} · FitPro`;
+      }
+
+      // Cargar estado real desde el backend
+      await cargarEstado();
+
+      // Enter en el input dispara la renovación
+      document.getElementById('input-clave').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') renovarLicencia();
+      });
+    });
+
+    // -----------------------------------------------
+    // Cargar estado de la licencia desde el backend
+    // -----------------------------------------------
+    async function cargarEstado() {
+      try {
+        const estado = await api.get('/licensing/estado');
+
+        // Actualizar badge con datos reales
+        document.getElementById('badge-fecha').textContent =
+          `Vence el ${estado.fecha_vencimiento}`;
+        document.getElementById('badge-mensaje').textContent = estado.mensaje;
+
+        // Si aún tiene acceso (llegó aquí por warning): mostrar countdown
+        if (estado.acceso_permitido && estado.segundos_restantes > 0) {
+          const boxCountdown = document.getElementById('countdown-box');
+          boxCountdown.style.display = 'block';
+
+          // Calcular la fecha exacta de vencimiento y arrancar el countdown
+          const fechaExp = new Date(Date.now() + (estado.segundos_restantes * 1000));
+          _arrancarCountdownPagina(fechaExp);
+
+          // Actualizar textos para el modo "advertencia" (no bloqueado aún)
+          document.getElementById('subtitulo').innerHTML =
+            'Tu licencia está próxima a vencer.<br/>Renueva ahora para no perder el acceso.';
+        }
+
+        // Si ya está bloqueado, redirigir si por alguna razón tiene acceso
+        // (no debería llegar aquí, pero por seguridad)
+
+      } catch (error) {
+        // Sin conexión: mostrar mensaje genérico
+        document.getElementById('badge-fecha').textContent = 'Sin conexión al servidor';
+        document.getElementById('badge-mensaje').textContent =
+          'No se pudo verificar el estado. Revisa tu conexión.';
+      }
+    }
+
+    // -----------------------------------------------
+    // Countdown en la página de bloqueo
+    // -----------------------------------------------
+    function _arrancarCountdownPagina(fechaExp) {
+      if (_countdownPageInterval) clearInterval(_countdownPageInterval);
+
+      function tick() {
+        const diff = fechaExp.getTime() - Date.now();
+        const el = document.getElementById('countdown-tiempo');
+
+        if (diff <= 0) {
+          clearInterval(_countdownPageInterval);
+          if (el) el.textContent = '00h 00m 00s';
+          // Recargar la página para que muestre el estado correcto bloqueado
+          location.reload();
+          return;
+        }
+
+        const dias    = Math.floor(diff / 86400000);
+        const horas   = Math.floor((diff % 86400000) / 3600000);
+        const minutos = Math.floor((diff % 3600000)  / 60000);
+        const segs    = Math.floor((diff % 60000)    / 1000);
+        const pad     = (n) => String(n).padStart(2, '0');
+
+        if (el) {
+          el.textContent = dias > 0
+            ? `${dias}d ${pad(horas)}h ${pad(minutos)}m ${pad(segs)}s`
+            : `${pad(horas)}h ${pad(minutos)}m ${pad(segs)}s`;
+        }
+      }
+
+      tick();
+      _countdownPageInterval = setInterval(tick, 1000);
+    }
+
+    // -----------------------------------------------
+    // Renovar licencia con la clave ingresada
+    // -----------------------------------------------
+    async function renovarLicencia() {
+      const clave = document.getElementById('input-clave').value.trim();
+
+      if (!clave) {
+        mostrarAlerta('error', 'Ingresa la clave de renovación.');
+        agitarInput();
+        return;
+      }
+
+      ocultarAlertas();
+      setBtnCargando(true);
+
+      try {
+        const respuesta = await api.post('/licensing/renovar', { clave });
+
+        // Éxito: mostrar mensaje y redirigir al dashboard
+        mostrarAlerta('exito', respuesta.mensaje);
+        document.getElementById('input-clave').value = '';
+
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 2200);
+
+      } catch (error) {
+        mostrarAlerta('error', error.message || 'Clave incorrecta. Intenta de nuevo.');
+        agitarInput();
+        document.getElementById('input-clave').select();
+      } finally {
+        setBtnCargando(false);
+      }
+    }
+
+    // -----------------------------------------------
+    // Toggle visibilidad de la clave
+    // -----------------------------------------------
+    function toggleVerClave() {
+      const input = document.getElementById('input-clave');
+      const icono = document.getElementById('icono-ver-clave');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icono.className = 'bi bi-eye-slash';
+      } else {
+        input.type = 'password';
+        icono.className = 'bi bi-eye';
+      }
+    }
+
+    // -----------------------------------------------
+    // Cerrar sesión
+    // -----------------------------------------------
+    async function cerrarSesion() {
+      await api.logout();
+    }
+
+    // -----------------------------------------------
+    // Funciones auxiliares de UI
+    // -----------------------------------------------
+    function mostrarAlerta(tipo, msg) {
+      ocultarAlertas();
+      const id    = tipo === 'error' ? 'alerta-error' : 'alerta-exito';
+      const msgId = tipo === 'error' ? 'alerta-error-msg' : 'alerta-exito-msg';
+      const el    = document.getElementById(id);
+      document.getElementById(msgId).textContent = msg;
+      el.style.display = 'flex';
+    }
+
+    function ocultarAlertas() {
+      document.getElementById('alerta-error').style.display = 'none';
+      document.getElementById('alerta-exito').style.display = 'none';
+    }
+
+    function setBtnCargando(activo) {
+      document.getElementById('btn-renovar').disabled = activo;
+      document.getElementById('btn-texto').style.display    = activo ? 'none'  : 'flex';
+      document.getElementById('btn-cargando').style.display = activo ? 'flex'  : 'none';
+    }
+
+    function agitarInput() {
+      const input = document.getElementById('input-clave');
+      input.classList.remove('error');
+      void input.offsetWidth; // Forzar reflow para reiniciar la animación
+      input.classList.add('error');
+      setTimeout(() => input.classList.remove('error'), 500);
+    }
+  </script>
+</body>
+</html>

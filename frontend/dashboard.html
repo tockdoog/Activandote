@@ -1,0 +1,595 @@
+<!-- frontend/dashboard.html -->
+<!-- Panel principal: estadísticas globales, gráficas y alertas del entrenador -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitPro | Dashboard</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+
+  <style>
+    /* -----------------------------------------------
+       ESTILOS ESPECÍFICOS DEL DASHBOARD
+       ----------------------------------------------- */
+
+    /* Franja de bienvenida con degradado verde */
+    .dashboard-hero {
+      background: linear-gradient(135deg, #15803D 0%, #16A34A 60%, #22C55E 100%);
+      border-radius: var(--radio-xl);
+      padding: var(--sp-xl) var(--sp-2xl);
+      margin-bottom: var(--sp-xl);
+      position: relative;
+      overflow: hidden;
+      color: #FFFFFF;
+    }
+
+    /* Círculos decorativos en el hero */
+    .dashboard-hero::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 220px; height: 220px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+    }
+
+    .dashboard-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; right: 120px;
+      width: 160px; height: 160px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .dashboard-hero-content { position: relative; z-index: 1; }
+
+    .dashboard-hero-saludo {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.80);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+
+    .dashboard-hero-nombre {
+      font-family: var(--fuente-display);
+      font-size: 2rem;
+      font-weight: 800;
+      color: #FFFFFF;
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
+
+    .dashboard-hero-desc {
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.78);
+      max-width: 420px;
+    }
+
+    /* Fecha en el hero */
+    .dashboard-hero-fecha {
+      position: absolute;
+      right: var(--sp-2xl);
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: right;
+      z-index: 1;
+    }
+
+    .dashboard-hero-fecha-dia {
+      font-family: var(--fuente-display);
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: rgba(255,255,255,0.25);
+      line-height: 1;
+    }
+
+    .dashboard-hero-fecha-txt {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.65);
+      text-transform: capitalize;
+    }
+
+    /* ── Tarjetas de estadística mejoradas ── */
+    .stat-card-trend {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .stat-card-trend.sube  { color: var(--verde-primario); }
+    .stat-card-trend.baja  { color: var(--rojo-alerta); }
+    .stat-card-trend.igual { color: #516651; }
+
+    /* ── Sección de título con línea ── */
+    .seccion-encabezado {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--sp-md);
+    }
+
+    .seccion-encabezado-titulo {
+      font-family: var(--fuente-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #111827;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .seccion-encabezado-titulo::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: var(--verde-primario);
+      border-radius: 3px;
+    }
+
+    /* ── Fila de alerta con degradado izquierdo ── */
+    .alerta-fila {
+      border-left: 3px solid var(--rojo-alerta) !important;
+    }
+
+    /* ── Actividad reciente: timeline ── */
+    .timeline-item {
+      display: flex;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--gris-borde);
+    }
+
+    .timeline-item:last-child { border-bottom: none; }
+
+    .timeline-dot {
+      width: 10px;
+      height: 10px;
+      min-width: 10px;
+      border-radius: 50%;
+      background: var(--verde-primario);
+      margin-top: 5px;
+      box-shadow: 0 0 0 3px rgba(22,163,74,0.18);
+    }
+
+    .timeline-dot.alerta {
+      background: var(--rojo-alerta);
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.18);
+    }
+
+    .timeline-texto {
+      font-size: 0.875rem;
+      color: #1F3A1F;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    .timeline-fecha {
+      font-size: 0.75rem;
+      color: #516651;
+      margin-top: 2px;
+    }
+
+    /* ── Chip de IMC ── */
+    .imc-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: var(--radio-pill);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .imc-chip.normal   { background: rgba(22,163,74,0.10); color: #15803D; }
+    .imc-chip.alerta   { background: rgba(239,68,68,0.10); color: #991B1B; }
+
+    /* ── Tabla de alertas ── */
+    .alerta-nombre-link {
+      color: #111827;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: color var(--transicion-rapida);
+    }
+
+    .alerta-nombre-link:hover {
+      color: var(--verde-primario);
+    }
+
+    /* ── Quick actions ── */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--sp-md);
+      margin-bottom: var(--sp-xl);
+    }
+
+    .quick-action-btn {
+      background: var(--blanco-puro);
+      border: 1.5px solid var(--gris-borde);
+      border-radius: var(--radio-xl);
+      padding: var(--sp-lg);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-md);
+      text-decoration: none;
+      color: #1F3A1F;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all var(--transicion-normal);
+      cursor: pointer;
+      font-family: var(--fuente-cuerpo);
+    }
+
+    .quick-action-btn:hover {
+      border-color: var(--verde-primario);
+      background: var(--verde-translucido);
+      color: var(--verde-oscuro);
+      transform: translateY(-2px);
+      box-shadow: var(--sombra-verde);
+    }
+
+    .quick-action-icon {
+      width: 42px;
+      height: 42px;
+      min-width: 42px;
+      background: var(--gris-100);
+      border-radius: var(--radio-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      transition: background var(--transicion-rapida);
+    }
+
+    .quick-action-btn:hover .quick-action-icon {
+      background: rgba(22,163,74,0.15);
+    }
+
+    .quick-action-label { font-size: 0.72rem; color: #516651; font-weight: 400; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ====================== -->
+  <!-- SIDEBAR                -->
+  <!-- ====================== -->
+  <aside class="sidebar" id="sidebar">
+
+    <a href="dashboard.html" class="sidebar-logo">
+      <div class="sidebar-logo-icon">🏋️</div>
+      <div class="sidebar-logo-text">FIT<span>PRO</span></div>
+    </a>
+
+    <div class="sidebar-user">
+      <div class="sidebar-user-avatar" id="user-avatar">?</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="user-name">Cargando...</div>
+        <div class="sidebar-user-plan" id="user-plan">Plan Free</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Principal</div>
+
+      <a href="dashboard.html" class="nav-item activo">
+        <i class="bi bi-grid-1x2-fill"></i>
+        <span>Dashboard</span>
+      </a>
+
+      <a href="patients.html" class="nav-item">
+        <i class="bi bi-people-fill"></i>
+        <span>Pacientes</span>
+      </a>
+
+      <div class="nav-section-title">Herramientas</div>
+
+      <button class="nav-item" onclick="exportarReporte()">
+        <i class="bi bi-file-earmark-arrow-down"></i>
+        <span>Exportar Reporte</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="nav-item" onclick="api.logout()" style="color:var(--rojo-alerta)">
+        <i class="bi bi-box-arrow-left"></i>
+        <span>Cerrar sesión</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ======================== -->
+  <!-- CONTENIDO PRINCIPAL      -->
+  <!-- ======================== -->
+  <main class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <!-- Hamburguesa móvil -->
+        <button class="btn btn-secundario btn-icon d-lg-none" onclick="toggleSidebar()">
+          <i class="bi bi-list" style="font-size:1.2rem"></i>
+        </button>
+        <div class="topbar-title">Dashboard</div>
+      </div>
+
+      <div class="topbar-actions">
+        <!-- Botón de alerta con badge -->
+        <button
+          class="btn btn-secundario btn-icon position-relative"
+          onclick="scrollToAlertas()"
+          title="Ver alertas activas"
+          style="color:#374E37"
+        >
+          <i class="bi bi-bell-fill"></i>
+          <!-- Badge rojo de alertas, visible si hay alertas -->
+          <span
+            id="badge-alertas"
+            class="position-absolute top-0 end-0 rounded-circle"
+            style="width:9px;height:9px;padding:0;background:var(--rojo-alerta);display:none;border:2px solid white"
+          ></span>
+        </button>
+
+        <!-- Atajo rápido: nuevo paciente -->
+        <a href="patients.html" class="btn btn-primario btn-sm">
+          <i class="bi bi-person-plus-fill me-1"></i>
+          <span class="d-none d-md-inline">Nuevo Paciente</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Área de contenido -->
+    <div class="page-container">
+
+      <!-- ========================== -->
+      <!-- HERO DE BIENVENIDA         -->
+      <!-- ========================== -->
+      <div class="dashboard-hero">
+        <div class="dashboard-hero-content">
+          <div class="dashboard-hero-saludo">Panel de Control · FitPro</div>
+          <div class="dashboard-hero-nombre">
+            Hola, <span id="saludo-nombre">Entrenador</span> 👋
+          </div>
+          <div class="dashboard-hero-desc">
+            Aquí tienes un resumen de tu actividad y el estado de tus pacientes hoy.
+          </div>
+        </div>
+
+        <!-- Fecha decorativa -->
+        <div class="dashboard-hero-fecha d-none d-md-block">
+          <div class="dashboard-hero-fecha-dia" id="fecha-dia">—</div>
+          <div class="dashboard-hero-fecha-txt" id="fecha-hoy">—</div>
+        </div>
+      </div>
+
+      <!-- ========================== -->
+      <!-- TARJETAS DE ESTADÍSTICAS   -->
+      <!-- ========================== -->
+      <div class="stats-grid">
+
+        <div class="stat-card">
+          <div class="stat-card-icon">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <div class="stat-card-valor" id="stat-total-pacientes">—</div>
+          <div class="stat-card-label">Total Pacientes</div>
+          <div class="stat-card-trend igual">
+            <i class="bi bi-dash"></i> Todos los registros
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-icon">
+            <i class="bi bi-person-check-fill"></i>
+          </div>
+          <div class="stat-card-valor" id="stat-pacientes-activos">—</div>
+          <div class="stat-card-label">Pacientes Activos</div>
+          <div class="stat-card-trend sube">
+            <i class="bi bi-arrow-up-short"></i> En seguimiento
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-icon">
+            <i class="bi bi-clipboard2-pulse-fill"></i>
+          </div>
+          <div class="stat-card-valor" id="stat-total-evaluaciones">—</div>
+          <div class="stat-card-label">Total Evaluaciones</div>
+          <div class="stat-card-trend sube">
+            <i class="bi bi-arrow-up-short"></i> Historial completo
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-icon">
+            <i class="bi bi-calendar3"></i>
+          </div>
+          <div class="stat-card-valor" id="stat-eval-mes">—</div>
+          <div class="stat-card-label">Evaluaciones Este Mes</div>
+          <div class="stat-card-trend igual" id="trend-mes">
+            <i class="bi bi-calendar-check"></i> Mes en curso
+          </div>
+        </div>
+
+        <!-- Tarjeta de alertas con variante roja -->
+        <div class="stat-card alerta">
+          <div class="stat-card-icon">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+          </div>
+          <div class="stat-card-valor" id="stat-con-alerta" style="color:var(--rojo-alerta)">—</div>
+          <div class="stat-card-label">Pacientes con Alerta</div>
+          <div class="stat-card-trend baja">
+            <i class="bi bi-arrow-down-short"></i> Requieren atención
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-icon">
+            <i class="bi bi-calculator-fill"></i>
+          </div>
+          <div class="stat-card-valor" id="stat-imc">—</div>
+          <div class="stat-card-label">IMC Promedio</div>
+          <div class="stat-card-trend igual">
+            <i class="bi bi-rulers"></i> Promedio global
+          </div>
+        </div>
+
+      </div><!-- /.stats-grid -->
+
+      <!-- ========================== -->
+      <!-- ACCIONES RÁPIDAS           -->
+      <!-- ========================== -->
+      <div class="seccion-encabezado">
+        <div class="seccion-encabezado-titulo">Acciones Rápidas</div>
+      </div>
+
+      <div class="quick-actions mb-4">
+        <a href="patients.html" class="quick-action-btn">
+          <div class="quick-action-icon">
+            <i class="bi bi-person-plus-fill" style="color:var(--verde-primario)"></i>
+          </div>
+          <div>
+            <div>Registrar Paciente</div>
+            <div class="quick-action-label">Añadir nuevo cliente</div>
+          </div>
+        </a>
+
+        <a href="patients.html" class="quick-action-btn">
+          <div class="quick-action-icon">
+            <i class="bi bi-clipboard2-plus-fill" style="color:var(--verde-primario)"></i>
+          </div>
+          <div>
+            <div>Nueva Evaluación</div>
+            <div class="quick-action-label">Registrar medidas</div>
+          </div>
+        </a>
+
+        <button class="quick-action-btn" onclick="exportarReporte()">
+          <div class="quick-action-icon">
+            <i class="bi bi-file-earmark-excel-fill" style="color:#16A34A"></i>
+          </div>
+          <div>
+            <div>Exportar Reporte</div>
+            <div class="quick-action-label">Descargar en Excel</div>
+          </div>
+        </button>
+
+        <button class="quick-action-btn" onclick="scrollToAlertas()">
+          <div class="quick-action-icon">
+            <i class="bi bi-bell-fill" style="color:var(--rojo-alerta)"></i>
+          </div>
+          <div>
+            <div>Ver Alertas</div>
+            <div class="quick-action-label">Pacientes críticos</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- ========================== -->
+      <!-- GRÁFICAS                   -->
+      <!-- ========================== -->
+      <div class="seccion-encabezado">
+        <div class="seccion-encabezado-titulo">Actividad Estadística</div>
+        <span style="font-size:.78rem;color:#516651">Últimos 12 meses</span>
+      </div>
+
+      <div class="grid-2 mb-4">
+
+        <!-- Evaluaciones por mes -->
+        <div class="grafica-container">
+          <div class="grafica-titulo">
+            <i class="bi bi-bar-chart-fill" style="color:var(--verde-primario)"></i>
+            Evaluaciones por Mes
+          </div>
+          <canvas id="grafica-evoluciones" height="220"></canvas>
+        </div>
+
+        <!-- Top 5 pacientes -->
+        <div class="grafica-container">
+          <div class="grafica-titulo">
+            <i class="bi bi-trophy-fill" style="color:var(--verde-primario)"></i>
+            Top 5 Pacientes — Más Evaluaciones
+          </div>
+          <canvas id="grafica-top-pacientes" height="220"></canvas>
+        </div>
+
+      </div>
+
+      <!-- ========================== -->
+      <!-- ALERTAS RECIENTES          -->
+      <!-- ========================== -->
+      <div id="seccion-alertas">
+        <div class="seccion-encabezado">
+          <div class="seccion-encabezado-titulo">
+            <i class="bi bi-exclamation-triangle-fill" style="color:var(--rojo-alerta);margin-left:8px"></i>
+            Alertas Recientes
+          </div>
+          <a href="patients.html" class="btn btn-fantasma btn-sm">
+            Ver todos los pacientes <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+        </div>
+
+        <div class="tabla-container">
+          <div class="tabla-responsive">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Paciente</th>
+                  <th>Fecha Evaluación</th>
+                  <th>Detalle de Alerta</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-alertas">
+                <tr>
+                  <td colspan="4">
+                    <div class="estado-vacio" style="padding:2rem">
+                      <div class="spinner"></div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /#seccion-alertas -->
+
+    </div><!-- /.page-container -->
+  </main>
+</div><!-- /.app-layout -->
+
+<!-- Overlay sidebar móvil -->
+<div
+  id="sidebar-overlay"
+  onclick="toggleSidebar()"
+  style="display:none;position:fixed;inset:0;background:rgba(15,42,26,0.45);backdrop-filter:blur(2px);z-index:999"
+></div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<!-- Cliente API -->
+<script src="js/api.js"></script>
+<!-- Licencia -->
+<script src="js/license.js"></script>
+<!-- Lógica del dashboard -->
+<script src="js/dashboard.js"></script>
+
+</body>
+</html>

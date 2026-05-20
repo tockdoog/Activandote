@@ -1,0 +1,792 @@
+<!-- frontend/evaluations.html -->
+<!-- Formulario completo de nueva evaluación física -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitPro | Nueva Evaluación</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+
+  <style>
+    /* -----------------------------------------------
+       ESTILOS ESPECÍFICOS DEL FORMULARIO DE EVALUACIÓN
+       ----------------------------------------------- */
+
+    /* Breadcrumb */
+    .breadcrumb-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #516651;
+      flex-wrap: wrap;
+    }
+
+    .breadcrumb-nav a {
+      color: #516651;
+      text-decoration: none;
+      transition: color var(--transicion-rapida);
+    }
+
+    .breadcrumb-nav a:hover { color: var(--verde-primario); }
+
+    .breadcrumb-nav .sep {
+      color: var(--gris-300);
+      font-size: 0.75rem;
+    }
+
+    .breadcrumb-nav .actual {
+      color: #111827;
+      font-weight: 600;
+    }
+
+    /* ── Header del paciente en contexto ── */
+    .eval-paciente-header {
+      background: var(--blanco-puro);
+      border: 1px solid var(--gris-borde);
+      border-left: 4px solid var(--verde-primario);
+      border-radius: var(--radio-xl);
+      padding: var(--sp-lg) var(--sp-xl);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-lg);
+      margin-bottom: var(--sp-xl);
+      box-shadow: var(--sombra-sm);
+    }
+
+    .eval-paciente-avatar {
+      width: 52px;
+      height: 52px;
+      min-width: 52px;
+      background: var(--verde-translucido);
+      border: 2px solid var(--verde-borde);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--fuente-display);
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #15803D;
+    }
+
+    .eval-paciente-nombre {
+      font-weight: 700;
+      color: #111827;
+      font-size: 1.05rem;
+    }
+
+    .eval-paciente-meta {
+      font-size: 0.82rem;
+      color: #516651;
+      margin-top: 2px;
+    }
+
+    /* Badge de número de evaluación */
+    .eval-numero-badge {
+      margin-left: auto;
+      text-align: center;
+      background: var(--verde-translucido);
+      border: 1px solid var(--verde-borde);
+      border-radius: var(--radio-lg);
+      padding: 10px 20px;
+    }
+
+    .eval-numero-label {
+      font-size: 0.68rem;
+      color: #374E37;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+    }
+
+    .eval-numero-valor {
+      font-family: var(--fuente-display);
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--verde-primario);
+      line-height: 1;
+    }
+
+    /* ── Tarjeta de sección del formulario ── */
+    .form-seccion {
+      background: var(--blanco-puro);
+      border: 1px solid var(--gris-borde);
+      border-radius: var(--radio-xl);
+      overflow: hidden;
+      margin-bottom: var(--sp-lg);
+      box-shadow: var(--sombra-sm);
+    }
+
+    /* Cabecera de sección con acento verde */
+    .form-seccion-header {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-md);
+      padding: var(--sp-md) var(--sp-lg);
+      background: var(--gris-panel);
+      border-bottom: 1px solid var(--gris-borde);
+    }
+
+    .form-seccion-icon {
+      width: 38px;
+      height: 38px;
+      min-width: 38px;
+      background: var(--verde-translucido);
+      border: 1px solid var(--verde-borde);
+      border-radius: var(--radio-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--verde-primario);
+      font-size: 1.1rem;
+    }
+
+    .form-seccion-titulo {
+      font-family: var(--fuente-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: #111827;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .form-seccion-subtitulo {
+      font-size: 0.75rem;
+      color: #516651;
+      margin-top: 1px;
+    }
+
+    /* Cuerpo de sección */
+    .form-seccion-body {
+      padding: var(--sp-lg);
+    }
+
+    /* ── Preview de IMC en tiempo real ── */
+    .imc-preview {
+      background: var(--gris-panel);
+      border: 1.5px solid var(--gris-borde);
+      border-radius: var(--radio-lg);
+      padding: var(--sp-lg);
+      text-align: center;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 160px;
+      transition: border-color var(--transicion-normal);
+    }
+
+    .imc-preview.activo {
+      border-color: var(--verde-borde);
+      background: var(--verde-translucido);
+    }
+
+    .imc-preview.alerta-imc {
+      border-color: rgba(239,68,68,0.35);
+      background: rgba(239,68,68,0.06);
+    }
+
+    .imc-label-top {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #374E37;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .imc-valor {
+      font-family: var(--fuente-display);
+      font-size: 3rem;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1;
+      transition: color var(--transicion-normal);
+    }
+
+    .imc-categoria {
+      font-size: 0.8rem;
+      color: #516651;
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    .imc-formula {
+      font-size: 0.7rem;
+      color: #516651;
+      margin-top: 10px;
+      font-family: 'Courier New', monospace;
+      background: rgba(0,0,0,0.04);
+      padding: 3px 8px;
+      border-radius: var(--radio-sm);
+    }
+
+    /* ── Preview del Índice Ruffier ── */
+    .ruffier-preview {
+      background: var(--gris-panel);
+      border: 1.5px solid var(--gris-borde);
+      border-radius: var(--radio-lg);
+      padding: var(--sp-lg);
+      transition: border-color var(--transicion-normal);
+    }
+
+    .ruffier-preview.activo {
+      border-color: var(--verde-borde);
+    }
+
+    .ruffier-formula {
+      font-size: 0.72rem;
+      color: #374E37;
+      font-family: 'Courier New', monospace;
+      background: rgba(0,0,0,0.04);
+      padding: 4px 10px;
+      border-radius: var(--radio-sm);
+      margin-bottom: var(--sp-md);
+      display: inline-block;
+    }
+
+    .ruffier-valor {
+      font-family: var(--fuente-display);
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1;
+      text-align: center;
+      transition: color var(--transicion-normal);
+    }
+
+    .ruffier-clasif {
+      font-size: 0.82rem;
+      color: #516651;
+      text-align: center;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    /* Escala de Ruffier */
+    .ruffier-escala {
+      display: flex;
+      gap: 4px;
+      margin-top: var(--sp-md);
+      flex-wrap: wrap;
+    }
+
+    .ruffier-escala-item {
+      flex: 1;
+      min-width: 60px;
+      text-align: center;
+      padding: 4px 6px;
+      border-radius: var(--radio-sm);
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #374E37;
+      background: var(--gris-100);
+      border: 1px solid var(--gris-200);
+    }
+
+    /* ── Ayuda de campos ── */
+    .campo-ayuda {
+      font-size: 0.72rem;
+      color: #516651;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .campo-ayuda.normal { color: var(--verde-primario); }
+    .campo-ayuda.alerta { color: var(--rojo-alerta); }
+
+    /* ── Subsección dentro del formulario ── */
+    .sub-seccion {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--verde-primario);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding-bottom: 6px;
+      border-bottom: 1.5px solid var(--verde-borde);
+      margin-bottom: var(--sp-md);
+      margin-top: var(--sp-lg);
+    }
+
+    .sub-seccion:first-child { margin-top: 0; }
+
+    /* ── Barra de acción fija al pie ── */
+    .form-action-bar {
+      background: var(--blanco-puro);
+      border: 1px solid var(--gris-borde);
+      border-radius: var(--radio-xl);
+      padding: var(--sp-lg) var(--sp-xl);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--sp-md);
+      box-shadow: var(--sombra-sm);
+      margin-top: var(--sp-xl);
+    }
+
+    /* Grid de campos 2 columnas */
+    .campos-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--sp-md);
+    }
+
+    .campos-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-md);
+    }
+
+    @media (max-width: 640px) {
+      .campos-2, .campos-3 { grid-template-columns: 1fr; }
+      .form-action-bar { flex-direction: column; }
+      .eval-paciente-header { flex-wrap: wrap; }
+      .eval-numero-badge { margin-left: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <a href="dashboard.html" class="sidebar-logo">
+      <div class="sidebar-logo-icon">🏋️</div>
+      <div class="sidebar-logo-text">FIT<span>PRO</span></div>
+    </a>
+    <div class="sidebar-user">
+      <div class="sidebar-user-avatar" id="user-avatar">?</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="user-name">Cargando...</div>
+        <div class="sidebar-user-plan" id="user-plan">Plan Free</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Principal</div>
+      <a href="dashboard.html" class="nav-item">
+        <i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span>
+      </a>
+      <a href="patients.html" class="nav-item activo">
+        <i class="bi bi-people-fill"></i><span>Pacientes</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="nav-item" onclick="api.logout()" style="color:var(--rojo-alerta)">
+        <i class="bi bi-box-arrow-left"></i><span>Cerrar sesión</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="main-content">
+
+    <!-- Topbar con breadcrumb -->
+    <header class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-secundario btn-icon d-lg-none" onclick="toggleSidebar()">
+          <i class="bi bi-list" style="font-size:1.2rem"></i>
+        </button>
+
+        <!-- Breadcrumb de navegación -->
+        <nav class="breadcrumb-nav">
+          <a href="patients.html">
+            <i class="bi bi-people me-1"></i>Pacientes
+          </a>
+          <span class="sep"><i class="bi bi-chevron-right"></i></span>
+          <a href="#" id="breadcrumb-paciente">Paciente</a>
+          <span class="sep"><i class="bi bi-chevron-right"></i></span>
+          <span class="actual">Nueva Evaluación</span>
+        </nav>
+      </div>
+    </header>
+
+    <div class="page-container">
+
+      <!-- ── Info del paciente en contexto ── -->
+      <div class="eval-paciente-header" id="eval-paciente-header">
+        <div class="eval-paciente-avatar" id="eval-paciente-avatar">?</div>
+        <div>
+          <div class="eval-paciente-nombre" id="eval-paciente-nombre">Cargando...</div>
+          <div class="eval-paciente-meta" id="eval-paciente-meta"></div>
+        </div>
+        <div class="eval-numero-badge">
+          <div class="eval-numero-label">Evaluación N°</div>
+          <div class="eval-numero-valor" id="eval-numero">—</div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- FORMULARIO COMPLETO DE EVALUACIÓN       -->
+      <!-- ════════════════════════════════════════ -->
+      <form id="form-evaluacion" novalidate>
+
+        <!-- ── SECCIÓN 1: DATOS GENERALES ── -->
+        <div class="form-seccion">
+          <div class="form-seccion-header">
+            <div class="form-seccion-icon">
+              <i class="bi bi-calendar3-event"></i>
+            </div>
+            <div>
+              <div class="form-seccion-titulo">Datos Generales</div>
+              <div class="form-seccion-subtitulo">Fecha y contexto de la evaluación</div>
+            </div>
+          </div>
+          <div class="form-seccion-body">
+            <div class="campos-2">
+              <div class="form-group">
+                <label class="form-label">Fecha de evaluación *</label>
+                <input type="date" id="eval-fecha" class="form-control" required />
+                <div class="campo-error" id="err-eval-fecha">La fecha es obligatoria</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Condición física general</label>
+                <select id="eval-condicion" class="form-control">
+                  <option value="">Seleccionar...</option>
+                  <option value="excelente">⭐⭐⭐ Excelente</option>
+                  <option value="muy_buena">⭐⭐ Muy Buena</option>
+                  <option value="buena">⭐ Buena</option>
+                  <option value="regular">Regular</option>
+                  <option value="deficiente">Deficiente</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SECCIÓN 2: COMPOSICIÓN CORPORAL ── -->
+        <div class="form-seccion">
+          <div class="form-seccion-header">
+            <div class="form-seccion-icon">
+              <i class="bi bi-person-lines-fill"></i>
+            </div>
+            <div>
+              <div class="form-seccion-titulo">Composición Corporal</div>
+              <div class="form-seccion-subtitulo">Medidas de composición y morfología</div>
+            </div>
+          </div>
+          <div class="form-seccion-body">
+            <div class="grid-2" style="gap:var(--sp-xl)">
+
+              <!-- Columna izquierda: campos -->
+              <div>
+                <div class="campos-2">
+                  <div class="form-group">
+                    <label class="form-label">Peso (kg)</label>
+                    <input type="number" id="eval-peso" class="form-control"
+                      placeholder="70.5" step="0.1" min="10" max="500"
+                      oninput="calcularIMCPreview()" />
+                    <div class="campo-ayuda">Rango: 10 – 500 kg</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Talla (m)</label>
+                    <input type="number" id="eval-talla" class="form-control"
+                      placeholder="1.75" step="0.01" min="0.5" max="2.5"
+                      oninput="calcularIMCPreview()" />
+                    <div class="campo-ayuda">Ej: 1.75</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">% Grasa</label>
+                    <input type="number" id="eval-grasa" class="form-control"
+                      placeholder="20.5" step="0.1" min="0" max="70" />
+                    <div class="campo-ayuda">Rango: 0 – 70%</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">% Agua</label>
+                    <input type="number" id="eval-agua" class="form-control"
+                      placeholder="55.0" step="0.1" min="0" max="100" />
+                    <div class="campo-ayuda">Rango: 0 – 100%</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">% Hueso</label>
+                    <input type="number" id="eval-hueso" class="form-control"
+                      placeholder="3.5" step="0.1" min="0" max="30" />
+                    <div class="campo-ayuda">Rango: 0 – 30%</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Músculo (kg)</label>
+                    <input type="number" id="eval-musculo" class="form-control"
+                      placeholder="32.0" step="0.1" min="0" max="200" />
+                    <div class="campo-ayuda">Rango: 0 – 200 kg</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Edad metabólica</label>
+                    <input type="number" id="eval-edad-metabolica" class="form-control"
+                      placeholder="28" min="10" max="100" />
+                    <div class="campo-ayuda">años</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Riesgo cardiovascular</label>
+                    <select id="eval-riesgo-cv" class="form-control">
+                      <option value="">Seleccionar...</option>
+                      <option value="bajo">🟢 Bajo</option>
+                      <option value="moderado">🟡 Moderado</option>
+                      <option value="alto">🟠 Alto</option>
+                      <option value="muy_alto">🔴 Muy alto</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Columna derecha: preview IMC -->
+              <div class="d-flex flex-column gap-3">
+                <div>
+                  <label class="form-label">IMC — Calculado en tiempo real</label>
+                  <div class="imc-preview" id="imc-preview-box">
+                    <div class="imc-label-top">Índice de Masa Corporal</div>
+                    <div class="imc-valor" id="imc-preview-valor">—</div>
+                    <div class="imc-categoria" id="imc-preview-cat">Ingrese peso y talla</div>
+                    <div class="imc-formula">peso ÷ talla²</div>
+                  </div>
+                </div>
+
+                <!-- Tabla de referencia IMC -->
+                <div style="
+                  background:var(--gris-panel);
+                  border:1px solid var(--gris-borde);
+                  border-radius:var(--radio-md);
+                  padding:var(--sp-md);
+                  font-size:0.72rem
+                ">
+                  <div style="font-weight:700;color:#1F3A1F;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">
+                    Referencia OMS
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px">
+                    <div style="display:flex;justify-content:space-between;color:#374E37">
+                      <span>Delgadez</span><span style="font-weight:700">&lt; 18.5</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;color:var(--verde-oscuro)">
+                      <span>Normal</span><span style="font-weight:700">18.5 – 24.9</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;color:#92400E">
+                      <span>Sobrepeso</span><span style="font-weight:700">25 – 29.9</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;color:var(--rojo-alerta)">
+                      <span>Obesidad</span><span style="font-weight:700">≥ 30</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SECCIÓN 3: INDICADORES DE SALUD ── -->
+        <div class="form-seccion">
+          <div class="form-seccion-header">
+            <div class="form-seccion-icon">
+              <i class="bi bi-heart-pulse-fill"></i>
+            </div>
+            <div>
+              <div class="form-seccion-titulo">Indicadores de Salud</div>
+              <div class="form-seccion-subtitulo">Signos vitales y salud general</div>
+            </div>
+          </div>
+          <div class="form-seccion-body">
+            <div class="campos-3">
+              <div class="form-group">
+                <label class="form-label">Oxigenación SpO₂ (%)</label>
+                <input type="number" id="eval-oxigenacion" class="form-control"
+                  placeholder="98" step="0.1" min="70" max="100" />
+                <div class="campo-ayuda normal">Normal: 95 – 100%</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">FC en reposo (lpm)</label>
+                <input type="number" id="eval-fc" class="form-control"
+                  placeholder="72" min="30" max="250" />
+                <div class="campo-ayuda normal">Normal: 60 – 100 lpm</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Horas de sueño</label>
+                <input type="number" id="eval-sueno" class="form-control"
+                  placeholder="7.5" step="0.5" min="0" max="24" />
+                <div class="campo-ayuda normal">Recomendado: 7 – 9 h</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">T.A. sistólica (mmHg)</label>
+                <input type="number" id="eval-ta-sistolica" class="form-control"
+                  placeholder="120" min="60" max="250" />
+                <div class="campo-ayuda normal">Normal: &lt; 120</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">T.A. diastólica (mmHg)</label>
+                <input type="number" id="eval-ta-diastolica" class="form-control"
+                  placeholder="80" min="40" max="150" />
+                <div class="campo-ayuda normal">Normal: &lt; 80</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Perímetro abdominal (cm)</label>
+                <input type="number" id="eval-perimetro" class="form-control"
+                  placeholder="85.0" step="0.1" min="40" max="200" />
+                <div class="campo-ayuda alerta">Riesgo: &gt;88 ♀ / &gt;102 ♂</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SECCIÓN 4: EVALUACIÓN FÍSICA FUNCIONAL ── -->
+        <div class="form-seccion">
+          <div class="form-seccion-header">
+            <div class="form-seccion-icon">
+              <i class="bi bi-activity"></i>
+            </div>
+            <div>
+              <div class="form-seccion-titulo">Evaluación Física Funcional</div>
+              <div class="form-seccion-subtitulo">Tests de resistencia, fuerza y flexibilidad</div>
+            </div>
+          </div>
+          <div class="form-seccion-body">
+
+            <!-- Test de Ruffier -->
+            <div class="sub-seccion">
+              <i class="bi bi-heart-pulse me-1"></i>
+              Test de Ruffier — Resistencia Cardiovascular
+            </div>
+
+            <div class="grid-2" style="gap:var(--sp-xl)">
+              <!-- Inputs P1, P2, P3 -->
+              <div class="campos-3" style="align-content:start">
+                <div class="form-group">
+                  <label class="form-label">P1 — FC reposo (lpm)</label>
+                  <input type="number" id="eval-fc-reposo" class="form-control"
+                    placeholder="70" min="30" max="200"
+                    oninput="calcularRuffierPreview()" />
+                  <div class="campo-ayuda">Antes del esfuerzo</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">P2 — FC post (lpm)</label>
+                  <input type="number" id="eval-fc-post" class="form-control"
+                    placeholder="130" min="50" max="250"
+                    oninput="calcularRuffierPreview()" />
+                  <div class="campo-ayuda">Tras 30 sentadillas</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">P3 — FC recuperación</label>
+                  <input type="number" id="eval-fc-rec" class="form-control"
+                    placeholder="90" min="30" max="250"
+                    oninput="calcularRuffierPreview()" />
+                  <div class="campo-ayuda">Al 1 min de recuperar</div>
+                </div>
+              </div>
+
+              <!-- Preview Ruffier -->
+              <div class="ruffier-preview" id="ruffier-preview-box">
+                <div class="ruffier-formula">IR = (P1 + P2 + P3 − 200) ÷ 10</div>
+                <div class="ruffier-valor" id="ruffier-preview-valor">—</div>
+                <div class="ruffier-clasif" id="ruffier-preview-clasif">
+                  Ingrese las tres frecuencias
+                </div>
+                <div class="ruffier-escala">
+                  <div class="ruffier-escala-item">&lt;0<br/>Excelente</div>
+                  <div class="ruffier-escala-item">0–5<br/>Muy buena</div>
+                  <div class="ruffier-escala-item">5–10<br/>Buena</div>
+                  <div class="ruffier-escala-item">10–15<br/>Regular</div>
+                  <div class="ruffier-escala-item">&gt;15<br/>Deficiente</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fuerza manual y Test de Wells -->
+            <div class="sub-seccion mt-4">
+              <i class="bi bi-hand-index-thumb me-1"></i>
+              Fuerza Manual y Flexibilidad
+            </div>
+
+            <div class="campos-3">
+              <div class="form-group">
+                <label class="form-label">Fuerza mano derecha (kg)</label>
+                <input type="number" id="eval-fuerza-der" class="form-control"
+                  placeholder="35.0" step="0.1" min="0" max="100" />
+                <div class="campo-ayuda">Dinamometría derecha</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fuerza mano izquierda (kg)</label>
+                <input type="number" id="eval-fuerza-izq" class="form-control"
+                  placeholder="32.0" step="0.1" min="0" max="100" />
+                <div class="campo-ayuda">Dinamometría izquierda</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Test de Wells — Flexibilidad (cm)</label>
+                <input type="number" id="eval-wells" class="form-control"
+                  placeholder="18.0" step="0.1" min="-50" max="60" />
+                <div class="campo-ayuda">+ adelante / − atrás del cero</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── SECCIÓN 5: NOTAS DEL ENTRENADOR ── -->
+        <div class="form-seccion">
+          <div class="form-seccion-header">
+            <div class="form-seccion-icon">
+              <i class="bi bi-pencil-square"></i>
+            </div>
+            <div>
+              <div class="form-seccion-titulo">Notas del Entrenador</div>
+              <div class="form-seccion-subtitulo">Observaciones y recomendaciones adicionales</div>
+            </div>
+          </div>
+          <div class="form-seccion-body">
+            <div class="form-group mb-0">
+              <label class="form-label">Notas y observaciones</label>
+              <textarea
+                id="eval-notas"
+                class="form-control"
+                rows="4"
+                placeholder="Observaciones sobre el estado físico, actitud, logros del periodo, recomendaciones para la siguiente sesión..."
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Barra de acciones ── -->
+        <div class="form-action-bar">
+          <a id="btn-cancelar-eval" href="patients.html" class="btn btn-secundario">
+            <i class="bi bi-arrow-left me-1"></i> Cancelar
+          </a>
+
+          <div class="d-flex align-items-center gap-3">
+            <span style="font-size:.78rem;color:#516651">
+              <i class="bi bi-shield-check me-1" style="color:var(--verde-primario)"></i>
+              Los datos se guardan de forma segura
+            </span>
+            <button type="submit" class="btn btn-primario btn-lg" id="btn-guardar-eval">
+              <span id="btn-eval-texto">
+                <i class="bi bi-check-lg me-2"></i> Guardar Evaluación
+              </span>
+              <span id="btn-eval-cargando" style="display:none;align-items:center;gap:8px">
+                <span class="spinner-border spinner-border-sm"></span> Guardando...
+              </span>
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </div><!-- /.page-container -->
+  </main>
+</div><!-- /.app-layout -->
+
+<!-- Overlay sidebar móvil -->
+<div
+  id="sidebar-overlay"
+  onclick="toggleSidebar()"
+  style="display:none;position:fixed;inset:0;background:rgba(15,42,26,0.45);backdrop-filter:blur(2px);z-index:999"
+></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Cliente API centralizado -->
+<script src="js/api.js"></script>
+<!-- Verificación de licencia — debe ir ANTES de evaluations.js -->
+<script src="js/license.js"></script>
+<!-- Lógica de evaluaciones -->
+<script src="js/evaluations.js"></script>
+
+</body>
+</html>

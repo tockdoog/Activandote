@@ -1,0 +1,620 @@
+<!-- frontend/patients.html -->
+<!-- Gestión de pacientes: listado, búsqueda, filtros y CRUD completo -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitPro | Pacientes</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+
+  <style>
+    /* -----------------------------------------------
+       ESTILOS ESPECÍFICOS DE PACIENTES
+       ----------------------------------------------- */
+
+    /* Encabezado de página con contador */
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--sp-xl);
+      flex-wrap: wrap;
+      gap: var(--sp-md);
+    }
+
+    .page-header-titulo {
+      font-family: var(--fuente-display);
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #111827;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+
+    .page-header-sub {
+      font-size: 0.875rem;
+      color: #516651;
+      margin-top: 4px;
+      font-weight: 400;
+    }
+
+    /* Fila de paciente con hover */
+    .patient-row {
+      cursor: pointer;
+      transition: background var(--transicion-rapida);
+    }
+
+    .patient-row:hover { background: var(--gris-100); }
+
+    /* Avatar con iniciales */
+    .avatar-pack {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar-iniciales {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      border-radius: 50%;
+      background: var(--verde-translucido);
+      border: 2px solid var(--verde-borde);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: #15803D;
+      font-family: var(--fuente-display);
+      letter-spacing: 0.5px;
+      transition: transform var(--transicion-rapida);
+    }
+
+    .patient-row:hover .avatar-iniciales {
+      transform: scale(1.08);
+    }
+
+    .avatar-nombre {
+      font-weight: 600;
+      color: #111827;
+      font-size: 0.9rem;
+      line-height: 1.3;
+    }
+
+    .avatar-fecha {
+      font-size: 0.75rem;
+      color: #516651;
+      margin-top: 2px;
+    }
+
+    /* Contador de evaluaciones destacado */
+    .eval-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-family: var(--fuente-display);
+      font-size: 1rem;
+      font-weight: 800;
+      transition: all var(--transicion-rapida);
+    }
+
+    .eval-count.con-evals {
+      background: var(--verde-translucido);
+      color: #15803D;
+      border: 1.5px solid var(--verde-borde);
+    }
+
+    .eval-count.sin-evals {
+      background: var(--gris-100);
+      color: #516651;
+      border: 1.5px solid var(--gris-200);
+    }
+
+    /* Pill de género */
+    .genero-pill {
+      font-size: 0.72rem;
+      color: #374E37;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Datos físicos */
+    .datos-fisicos {
+      font-size: 0.875rem;
+      color: #1F3A1F;
+      font-weight: 600;
+    }
+
+    .datos-fisicos-sub {
+      font-size: 0.75rem;
+      color: #516651;
+      margin-top: 1px;
+    }
+
+    /* Contacto */
+    .contacto-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #374E37;
+    }
+
+    .contacto-item i { color: var(--verde-primario); font-size: 0.8rem; }
+
+    /* Botones de acción en tabla */
+    .acciones-grupo {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    /* Barra de búsqueda rediseñada */
+    .filtros-barra {
+      background: var(--blanco-puro);
+      border: 1px solid var(--gris-borde);
+      border-radius: var(--radio-xl);
+      padding: var(--sp-md) var(--sp-lg);
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-md);
+      align-items: center;
+      margin-bottom: var(--sp-lg);
+      box-shadow: var(--sombra-sm);
+    }
+
+    /* Separador vertical entre filtros */
+    .filtro-separador {
+      width: 1px;
+      height: 28px;
+      background: var(--gris-200);
+      flex-shrink: 0;
+    }
+
+    /* Sección header de modal */
+    .modal-seccion {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--verde-primario);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding-bottom: var(--sp-sm);
+      border-bottom: 2px solid var(--verde-borde);
+      margin-bottom: var(--sp-lg);
+      margin-top: var(--sp-xl);
+    }
+
+    .modal-seccion:first-of-type { margin-top: 0; }
+
+    /* Grupo de campos en 2 columnas dentro del modal */
+    .campos-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--sp-md);
+    }
+
+    @media (max-width: 540px) {
+      .campos-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ============================================
+       SIDEBAR
+       ============================================ -->
+  <aside class="sidebar" id="sidebar">
+
+    <a href="dashboard.html" class="sidebar-logo">
+      <div class="sidebar-logo-icon">🏋️</div>
+      <div class="sidebar-logo-text">FIT<span>PRO</span></div>
+    </a>
+
+    <div class="sidebar-user">
+      <div class="sidebar-user-avatar" id="user-avatar">?</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="user-name">Cargando...</div>
+        <div class="sidebar-user-plan" id="user-plan">Plan Free</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Principal</div>
+      <a href="dashboard.html" class="nav-item">
+        <i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span>
+      </a>
+      <a href="patients.html" class="nav-item activo">
+        <i class="bi bi-people-fill"></i><span>Pacientes</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="nav-item" onclick="api.logout()" style="color:var(--rojo-alerta)">
+        <i class="bi bi-box-arrow-left"></i><span>Cerrar sesión</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============================================
+       CONTENIDO PRINCIPAL
+       ============================================ -->
+  <main class="main-content">
+
+    <header class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-secundario btn-icon d-lg-none" onclick="toggleSidebar()">
+          <i class="bi bi-list" style="font-size:1.2rem"></i>
+        </button>
+        <div class="topbar-title">Pacientes</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-primario btn-sm" onclick="abrirModalNuevoPaciente()">
+          <i class="bi bi-person-plus-fill me-1"></i>
+          <span class="d-none d-sm-inline">Nuevo Paciente</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-container">
+
+      <!-- Encabezado de página -->
+      <div class="page-header">
+        <div>
+          <div class="page-header-titulo">Mis Pacientes</div>
+          <div class="page-header-sub">
+            Gestiona, evalúa y da seguimiento a tus atletas
+            <span id="contador-pacientes" style="color:var(--verde-primario);font-weight:700"></span>
+          </div>
+        </div>
+        <button class="btn btn-primario d-none d-md-flex" onclick="abrirModalNuevoPaciente()">
+          <i class="bi bi-person-plus-fill me-2"></i> Registrar Paciente
+        </button>
+      </div>
+
+      <!-- ── Filtros y búsqueda ── -->
+      <div class="filtros-barra">
+
+        <!-- Búsqueda -->
+        <div class="busqueda-container" style="flex:1;min-width:220px">
+          <i class="bi bi-search"></i>
+          <input
+            type="text"
+            class="form-control busqueda-input"
+            id="input-busqueda"
+            placeholder="Buscar por nombre, teléfono o correo..."
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="filtro-separador d-none d-md-block"></div>
+
+        <!-- Filtro género -->
+        <select
+          class="form-control"
+          id="filtro-genero"
+          onchange="filtrarPacientes()"
+          style="max-width:160px;min-width:130px"
+        >
+          <option value="">Todos los géneros</option>
+          <option value="masculino">Masculino</option>
+          <option value="femenino">Femenino</option>
+          <option value="otro">Otro</option>
+        </select>
+
+        <!-- Filtro estado -->
+        <select
+          class="form-control"
+          id="filtro-estado"
+          onchange="filtrarPacientes()"
+          style="max-width:160px;min-width:130px"
+        >
+          <option value="">Todos los estados</option>
+          <option value="activo">Activos</option>
+          <option value="inactivo">Inactivos</option>
+        </select>
+
+        <!-- Limpiar filtros -->
+        <button class="btn btn-secundario btn-sm" onclick="limpiarFiltros()">
+          <i class="bi bi-x-circle me-1"></i> Limpiar
+        </button>
+      </div>
+
+      <!-- ── Tabla de pacientes ── -->
+      <div class="tabla-container">
+        <div class="tabla-header">
+          <div class="tabla-titulo">
+            <i class="bi bi-people-fill me-2" style="color:var(--verde-primario)"></i>
+            Lista de Pacientes
+          </div>
+          <!-- Botón exportar (futuro) -->
+          <button class="btn btn-secundario btn-sm" title="Exportar lista" onclick="mostrarToast('Exportación global próximamente', 'info')">
+            <i class="bi bi-download me-1"></i>
+            <span class="d-none d-md-inline">Exportar</span>
+          </button>
+        </div>
+
+        <div class="tabla-responsive">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Paciente</th>
+                <th>Edad / Género</th>
+                <th>Contacto</th>
+                <th>Talla / Peso inicial</th>
+                <th style="text-align:center">Evaluaciones</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-pacientes">
+              <!-- Spinner inicial -->
+              <tr>
+                <td colspan="7">
+                  <div class="estado-vacio" style="padding:2rem">
+                    <div class="spinner"></div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Paginación -->
+        <div class="paginacion" id="paginacion" style="display:none">
+          <div class="paginacion-info" id="paginacion-info"></div>
+          <div class="paginacion-botones" id="paginacion-botones"></div>
+        </div>
+      </div>
+
+    </div><!-- /.page-container -->
+  </main>
+</div><!-- /.app-layout -->
+
+<!-- Overlay sidebar móvil -->
+<div
+  id="sidebar-overlay"
+  onclick="toggleSidebar()"
+  style="display:none;position:fixed;inset:0;background:rgba(15,42,26,0.45);backdrop-filter:blur(2px);z-index:999"
+></div>
+
+<!-- =====================================================
+     MODAL: CREAR / EDITAR PACIENTE
+     Usa .modal-caja (NO .modal) para no chocar con Bootstrap
+     ===================================================== -->
+<div class="modal-overlay" id="modal-paciente">
+  <div class="modal-caja" style="max-width:680px">
+
+    <div class="modal-header">
+      <h3 class="modal-titulo" id="modal-paciente-titulo">
+        <i class="bi bi-person-plus me-2" style="color:var(--verde-primario)"></i>
+        Nuevo Paciente
+      </h3>
+      <button class="modal-cerrar" onclick="cerrarModal('modal-paciente')" aria-label="Cerrar">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form id="form-paciente" novalidate autocomplete="off">
+
+        <!-- ID oculto para modo edición -->
+        <input type="hidden" id="paciente-id" />
+
+        <!-- ── Datos personales ── -->
+        <div class="modal-seccion">
+          <i class="bi bi-person-badge me-2"></i>Datos Personales
+        </div>
+
+        <div class="campos-grid">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Nombre completo *</label>
+            <input
+              type="text" id="p-nombre" class="form-control"
+              placeholder="Juan García López"
+              required minlength="3" maxlength="100"
+            />
+            <div class="campo-error" id="err-p-nombre">Mínimo 3 caracteres</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Edad *</label>
+            <input
+              type="number" id="p-edad" class="form-control"
+              placeholder="25" required min="5" max="120"
+            />
+            <div class="campo-error" id="err-p-edad">Entre 5 y 120 años</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Género *</label>
+            <select id="p-genero" class="form-control" required>
+              <option value="">Seleccione...</option>
+              <option value="masculino">Masculino</option>
+              <option value="femenino">Femenino</option>
+              <option value="otro">Otro</option>
+              <option value="prefiere_no_decir">Prefiere no decir</option>
+            </select>
+            <div class="campo-error" id="err-p-genero">Seleccione un género</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Fecha de nacimiento</label>
+            <input type="date" id="p-fecha-nac" class="form-control" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Fecha de ingreso</label>
+            <input type="date" id="p-fecha-ingreso" class="form-control" />
+          </div>
+        </div>
+
+        <!-- ── Contacto ── -->
+        <div class="modal-seccion">
+          <i class="bi bi-telephone me-2"></i>Contacto
+        </div>
+
+        <div class="campos-grid">
+          <div class="form-group">
+            <label class="form-label">Teléfono</label>
+            <input
+              type="tel" id="p-telefono" class="form-control"
+              placeholder="3001234567" maxlength="20"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Correo electrónico</label>
+            <input
+              type="email" id="p-correo" class="form-control"
+              placeholder="correo@email.com"
+            />
+          </div>
+        </div>
+
+        <!-- ── Datos físicos ── -->
+        <div class="modal-seccion">
+          <i class="bi bi-rulers me-2"></i>Datos Físicos Iniciales
+        </div>
+
+        <div class="campos-grid">
+          <div class="form-group">
+            <label class="form-label">Talla (metros) *</label>
+            <input
+              type="number" id="p-talla" class="form-control"
+              placeholder="1.75" step="0.01" required min="0.5" max="2.5"
+            />
+            <div class="campo-error" id="err-p-talla">Ej: 1.75 (entre 0.5 y 2.5 m)</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Peso inicial (kg) *</label>
+            <input
+              type="number" id="p-peso" class="form-control"
+              placeholder="70.5" step="0.1" required min="10" max="500"
+            />
+            <div class="campo-error" id="err-p-peso">Entre 10 y 500 kg</div>
+          </div>
+        </div>
+
+        <!-- ── Notas y objetivos ── -->
+        <div class="modal-seccion">
+          <i class="bi bi-bullseye me-2"></i>Notas y Objetivos
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Objetivos del paciente</label>
+          <textarea
+            id="p-objetivos" class="form-control" rows="2"
+            placeholder="Bajar de peso, mejorar condición física, ganar masa muscular..."
+          ></textarea>
+        </div>
+
+        <div class="campos-grid">
+          <div class="form-group">
+            <label class="form-label">Condición médica relevante</label>
+            <textarea
+              id="p-condicion" class="form-control" rows="2"
+              placeholder="Hipertensión, diabetes, lesiones previas..."
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Observaciones generales</label>
+            <textarea
+              id="p-observaciones" class="form-control" rows="2"
+              placeholder="Notas adicionales del entrenador..."
+            ></textarea>
+          </div>
+        </div>
+
+      </form>
+    </div><!-- /.modal-body -->
+
+    <div class="modal-footer">
+      <button class="btn btn-secundario" onclick="cerrarModal('modal-paciente')">
+        <i class="bi bi-x me-1"></i> Cancelar
+      </button>
+      <button class="btn btn-primario" id="btn-guardar-paciente" onclick="guardarPaciente()">
+        <i class="bi bi-check-lg me-1"></i> Guardar Paciente
+      </button>
+    </div>
+
+  </div><!-- /.modal-caja -->
+</div><!-- /#modal-paciente -->
+
+<!-- =====================================================
+     MODAL: CONFIRMACIÓN DE DESACTIVACIÓN
+     ===================================================== -->
+<div class="modal-overlay" id="modal-eliminar">
+  <div class="modal-caja" style="max-width:420px">
+
+    <div class="modal-header">
+      <h3 class="modal-titulo" style="color:var(--rojo-alerta)">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        Confirmar desactivación
+      </h3>
+      <button class="modal-cerrar" onclick="cerrarModal('modal-eliminar')" aria-label="Cerrar">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Icono visual de advertencia -->
+      <div class="text-center mb-4">
+        <div style="
+          width:64px;height:64px;
+          background:var(--rojo-bg);
+          border-radius:50%;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          font-size:1.8rem
+        ">⚠️</div>
+      </div>
+
+      <p style="color:#111827;font-weight:600;text-align:center;font-size:.95rem;margin-bottom:8px">
+        ¿Desactivar a
+        <strong id="nombre-eliminar" style="color:var(--rojo-alerta)"></strong>?
+      </p>
+      <p style="font-size:.85rem;color:#516651;text-align:center">
+        El paciente será marcado como inactivo.<br/>
+        Su historial de evaluaciones se conservará intacto.
+      </p>
+    </div>
+
+    <div class="modal-footer" style="justify-content:center;gap:var(--sp-lg)">
+      <button class="btn btn-secundario" onclick="cerrarModal('modal-eliminar')">
+        Cancelar
+      </button>
+      <button class="btn btn-peligro" id="btn-confirmar-eliminar" onclick="confirmarEliminar()">
+        <i class="bi bi-person-dash me-1"></i> Desactivar paciente
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Cliente API centralizado -->
+<script src="js/api.js"></script>
+<!-- Licencia -->
+<script src="js/license.js"></script>
+<!-- Lógica CRUD de pacientes -->
+<script src="js/patients.js"></script>
+
+</body>
+</html>
