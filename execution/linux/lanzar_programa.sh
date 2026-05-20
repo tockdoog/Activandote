@@ -1,16 +1,9 @@
 #!/bin/bash
 
 # =============================================================
-# execution/mac/detener_programa.command
-# Detiene los servicios Docker de FitPro
+# execution/linux/lanzar_programa.sh
+# Inicia FitPro y abre el navegador
 # =============================================================
-
-clear
-
-echo "======================================================"
-echo "      FITPRO | DETENIENDO SERVICIOS"
-echo "======================================================"
-echo
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -26,12 +19,15 @@ fi
 
 cd "$ROOT_DIR" || exit
 
-$COMPOSE_CMD down
+$COMPOSE_CMD up -d
 
-if [ $? -eq 0 ]; then
-    echo
-    echo "Servicios detenidos correctamente ✔"
-else
-    echo
-    echo "Error al detener servicios"
+if [ $? -ne 0 ]; then
+    echo "Error iniciando FitPro"
+    exit 1
+fi
+
+sleep 5
+
+if command -v xdg-open &> /dev/null; then
+    xdg-open http://localhost
 fi

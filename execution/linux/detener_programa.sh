@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================
-# execution/mac/detener_programa.command
+# execution/linux/detener_programa.sh
 # Detiene los servicios Docker de FitPro
 # =============================================================
 
