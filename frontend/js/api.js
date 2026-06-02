@@ -21,14 +21,8 @@ class ApiClient {
     this._refreshKey = 'fp_rt';
     this._userKey    = 'fp_user';
 
-    // Flag interno para saber si estamos en medio de una renovación de token.
-    // Evita bucles infinitos cuando el refresh token también expira.
+    // Flag interno para evitar bucles infinitos al renovar el token
     this._renovandoToken = false;
-
-    // Flag interno para saber si la petición actual es de autenticación.
-    // Un 401 en /auth/login NO debe intentar renovar el token — es simplemente
-    // credenciales incorrectas, no un token expirado.
-    this._esEndpointAuth = false;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -73,12 +67,10 @@ class ApiClient {
    * Ejecuta una petición HTTP al backend.
    * Adjunta el token Bearer automáticamente.
    * Si recibe 401 en rutas protegidas, intenta renovar el token antes de reintentar.
-   * NUNCA intenta renovar si la petición es hacia /auth/* (login, registro, refresh).
    */
   async request(endpoint, opciones = {}) {
     const token = this.getAccessToken();
 
-    // Construcción de la configuración con cabeceras de seguridad
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -88,37 +80,29 @@ class ApiClient {
       ...opciones
     };
 
-    // Determinar si este endpoint es de autenticación.
     // Los endpoints /auth/* manejan sus propios errores 401 (credenciales incorrectas)
-    // y NO deben activar el flujo de renovación de token.
     const esRutaAuth = endpoint.startsWith('/auth/');
 
     try {
       const respuesta = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
-      // Manejo del 401: solo intentar renovar si NO es una ruta de autenticación
-      // y NO estamos ya en medio de una renovación (evita bucle infinito)
+      // Intentar renovar el token si expiró (solo en rutas protegidas)
       if (respuesta.status === 401 && !esRutaAuth && !this._renovandoToken) {
         const renovado = await this._renovarToken();
         if (renovado) {
-          // Reintentar la petición original con el nuevo access token
           config.headers['Authorization'] = `Bearer ${this.getAccessToken()}`;
           const reintento = await fetch(`${API_BASE_URL}${endpoint}`, config);
           return await this._procesarRespuesta(reintento);
         } else {
-          // No se pudo renovar el token: limpiar sesión y enviar al login
           this.limpiarSesion();
           window.location.href = 'index.html';
           return;
         }
       }
 
-      // Para rutas de auth con 401: simplemente procesar la respuesta de error
-      // El catch en auth.js mostrará el mensaje de credenciales incorrectas
       return await this._procesarRespuesta(respuesta);
 
     } catch (error) {
-      // Error de red: sin conexión al servidor o servidor caído
       console.error('Error de red:', error);
       mostrarToast('Error de conexión con el servidor', 'error');
       throw error;
@@ -127,7 +111,6 @@ class ApiClient {
 
   /** Procesa la respuesta HTTP: extrae JSON o lanza error con mensaje descriptivo */
   async _procesarRespuesta(respuesta) {
-    // 204 No Content: respuesta vacía válida, retornar null
     if (respuesta.status === 204) return null;
 
     let datos;
@@ -139,7 +122,6 @@ class ApiClient {
 
     if (respuesta.ok) return datos;
 
-    // Construir error con mensaje del servidor o genérico según el código HTTP
     const mensajeError = datos?.detail || datos?.detalle || this._mensajeError(respuesta.status);
     const error = new Error(mensajeError);
     error.status = respuesta.status;
@@ -155,11 +137,9 @@ class ApiClient {
     const refreshToken = localStorage.getItem(this._refreshKey);
     if (!refreshToken) return false;
 
-    // Marcar que estamos en proceso de renovación para evitar bucle
     this._renovandoToken = true;
 
     try {
-      // Petición directa sin pasar por this.request para evitar recursión
       const respuesta = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,7 +156,6 @@ class ApiClient {
     } catch {
       return false;
     } finally {
-      // Siempre desmarcar el flag al terminar, éxito o fallo
       this._renovandoToken = false;
     }
   }
@@ -211,21 +190,18 @@ class ApiClient {
   // ENDPOINTS DE AUTENTICACIÓN
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** Autentica con email y contraseña, guarda la sesión automáticamente */
   async login(email, password) {
     const datos = await this.post('/auth/login', { email, password });
     this.guardarSesion(datos);
     return datos;
   }
 
-  /** Registra nuevo usuario y guarda la sesión automáticamente */
   async registro(datosUsuario) {
     const datos = await this.post('/auth/registro', datosUsuario);
     this.guardarSesion(datos);
     return datos;
   }
 
-  /** Cierra sesión: invalida en el servidor y limpia localStorage */
   async logout() {
     try { await this.post('/auth/logout', {}); } catch { /* ignorar error de red */ }
     this.limpiarSesion();
@@ -236,7 +212,6 @@ class ApiClient {
   // ENDPOINTS DE PACIENTES
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** Lista pacientes con filtros opcionales (buscar, genero, estado, page, per_page) */
   listarPacientes(params = {}) {
     const qs = new URLSearchParams(params).toString();
     return this.get(`/patients${qs ? '?' + qs : ''}`);
@@ -257,33 +232,105 @@ class ApiClient {
   actualizarEvaluacion(id, datos)   { return this.put(`/evaluations/${id}`, datos); }
   eliminarEvaluacion(id)            { return this.delete(`/evaluations/${id}`); }
 
-  /** Compara dos evaluaciones de un mismo paciente */
   compararEvaluaciones(patientId, id1, id2) {
     return this.get(`/evaluations/patients/${patientId}/comparar?eval_id_1=${id1}&eval_id_2=${id2}`);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // EXPORTACIÓN DE DATOS
+  // EXPORTACIÓN POR PACIENTE (Excel individual)
   // ─────────────────────────────────────────────────────────────────────────
 
   /** Descarga el historial de evaluaciones de un paciente como archivo Excel */
   async exportarExcel(patientId, nombrePaciente) {
     const token = this.getAccessToken();
 
-    // Petición directa con fetch para manejar la descarga de binarios
-    const respuesta = await fetch(`${API_BASE_URL}/evaluations/patients/${patientId}/export/excel`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
+    const respuesta = await fetch(
+      `${API_BASE_URL}/evaluations/patients/${patientId}/export/excel`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
 
     if (!respuesta.ok) throw new Error('Error al generar el archivo Excel');
 
-    // Crear URL temporal de descarga y simular clic en enlace
     const blob = await respuesta.blob();
     const url  = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href     = url;
     link.download = `fitpro_${nombrePaciente.replace(/\s+/g, '_')}.xlsx`;
     link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // EXPORTACIÓN GLOBAL — Nuevos endpoints del reporte global
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Obtiene los datos del reporte global en JSON.
+   * Usado para la previsualización en el modal antes de exportar.
+   */
+  obtenerReporteGlobal() {
+    return this.get('/dashboard/reporte-global');
+  }
+
+  /**
+   * Descarga el reporte global completo en formato Excel (.xlsx).
+   * Realiza la petición con fetch directo para manejar la respuesta binaria.
+   * El archivo tiene 4 hojas: Resumen, Pacientes, Evolución, Alertas.
+   */
+  async exportarReporteGlobalExcel() {
+    const token = this.getAccessToken();
+
+    const respuesta = await fetch(
+      `${API_BASE_URL}/dashboard/reporte-global/excel`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    if (!respuesta.ok) throw new Error('Error al generar el reporte Excel');
+
+    // Obtener nombre del archivo desde la cabecera Content-Disposition
+    const disposition = respuesta.headers.get('Content-Disposition') || '';
+    const match       = disposition.match(/filename=([^;]+)/);
+    const nombre      = match ? match[1].trim() : 'fitpro_reporte_global.xlsx';
+
+    // Crear enlace temporal para descargar el blob binario
+    const blob = await respuesta.blob();
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = nombre;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Descarga el reporte global completo en formato PDF.
+   * Diseño deportivo con paleta rojo/negro/blanco.
+   */
+  async exportarReporteGlobalPDF() {
+    const token = this.getAccessToken();
+
+    const respuesta = await fetch(
+      `${API_BASE_URL}/dashboard/reporte-global/pdf`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    if (!respuesta.ok) throw new Error('Error al generar el reporte PDF');
+
+    // Obtener nombre del archivo desde la cabecera
+    const disposition = respuesta.headers.get('Content-Disposition') || '';
+    const match       = disposition.match(/filename=([^;]+)/);
+    const nombre      = match ? match[1].trim() : 'fitpro_reporte_global.pdf';
+
+    const blob = await respuesta.blob();
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = nombre;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
 
@@ -305,7 +352,6 @@ const api = new ApiClient();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SISTEMA DE NOTIFICACIONES TOAST
-// Usa .toast-fitpro para no colisionar con Bootstrap .toast
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -315,7 +361,6 @@ const api = new ApiClient();
  * @param {number} duracion - Milisegundos hasta desaparecer (default 3500)
  */
 function mostrarToast(mensaje, tipo = 'info', duracion = 3500) {
-  // Crear el contenedor de toasts si aún no existe en el DOM
   let contenedor = document.getElementById('toast-container');
   if (!contenedor) {
     contenedor = document.createElement('div');
@@ -324,10 +369,8 @@ function mostrarToast(mensaje, tipo = 'info', duracion = 3500) {
     document.body.appendChild(contenedor);
   }
 
-  // Íconos visuales por tipo de notificación
   const iconos = { exito: '✓', error: '✕', info: 'ℹ', advertencia: '⚠' };
 
-  // Crear el elemento toast con la clase de color correspondiente
   const toast = document.createElement('div');
   toast.className = `toast-fitpro ${tipo}`;
   toast.innerHTML = `
@@ -337,7 +380,6 @@ function mostrarToast(mensaje, tipo = 'info', duracion = 3500) {
 
   contenedor.appendChild(toast);
 
-  // Auto-eliminar el toast después de la duración con animación de salida
   setTimeout(() => {
     toast.style.animation = 'toastEntrada 0.3s ease reverse forwards';
     setTimeout(() => {
@@ -351,7 +393,6 @@ function mostrarToast(mensaje, tipo = 'info', duracion = 3500) {
 // INDICADOR DE CARGA GLOBAL
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Muestra el overlay de carga centrado en pantalla mientras hay peticiones pendientes */
 function mostrarCargando() {
   let overlay = document.getElementById('loading-overlay');
   if (!overlay) {
@@ -367,7 +408,6 @@ function mostrarCargando() {
   overlay.style.display = 'flex';
 }
 
-/** Oculta el overlay de carga */
 function ocultarCargando() {
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.style.display = 'none';
@@ -375,7 +415,7 @@ function ocultarCargando() {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UTILIDADES DE FORMATO — usadas en múltiples páginas
+// UTILIDADES DE FORMATO
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Formatea una fecha ISO a formato legible en español colombiano */
