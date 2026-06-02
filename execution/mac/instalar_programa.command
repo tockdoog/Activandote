@@ -1,79 +1,130 @@
 #!/bin/bash
-    echo
-    echo "[ERROR] Docker Desktop no está corriendo."
-    echo
-    echo "Abre Docker Desktop y espera unos segundos."
+
+# =============================================================
+# execution/mac/instalar_programa.command
+# Instalador inicial de FitPro para macOS.
+# Verifica prerequisitos, crea docker/.env y descarga imagenes.
+# =============================================================
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+EXEC_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$EXEC_DIR/.." && pwd)"
+
+COMPOSE_FILE="$ROOT_DIR/docker-compose.yml"
+DOCKER_DIR="$ROOT_DIR/docker"
+ENV_FILE="$DOCKER_DIR/.env"
+
+mostrar_error() {
+    osascript -e "display dialog \"$1\" with title \"$2\" buttons {\"Cerrar\"} default button \"Cerrar\" with icon stop"
+}
+
+mostrar_aviso() {
+    osascript -e "display dialog \"$1\" with title \"$2\" buttons {\"Cerrar\"} default button \"Cerrar\" with icon caution"
+}
+
+mostrar_info() {
+    osascript -e "display dialog \"$1\" with title \"$2\" buttons {\"Aceptar\"} default button \"Aceptar\" with icon note"
+}
+
+if [ ! -f "$COMPOSE_FILE" ]; then
+    mostrar_error \
+        "No se encontro el archivo docker-compose.yml.\n\nRuta esperada:\n$COMPOSE_FILE\n\nVerifica que el proyecto este completo y que el instalador este en la carpeta: execution/mac/" \
+        "FitPro - Archivo No Encontrado"
     exit 1
 fi
 
-echo "Docker Engine activo ✔"
+export PATH="$PATH:/usr/local/bin"
 
-# -----------------------------------------------
-# PASO 3: Verificar Docker Compose
-# -----------------------------------------------
-echo
-echo "[3/5] Verificando Docker Compose..."
+if ! docker info &>/dev/null; then
+    mostrar_aviso \
+        "Docker Desktop no esta activo.\n\nPara instalar FitPro necesitas:\n\n1. Abre Docker Desktop desde Aplicaciones\n2. Espera a que el icono de la barra de menu deje de moverse\n   (30-60 segundos aproximadamente)\n3. Luego abre el instalador nuevamente" \
+        "FitPro - Docker No Esta Activo"
+    exit 1
+fi
 
-if docker compose version &> /dev/null; then
+if docker compose version &>/dev/null 2>&1; then
     COMPOSE_CMD="docker compose"
-    echo "Docker Compose V2 detectado ✔"
-elif command -v docker-compose &> /dev/null; then
+elif command -v docker-compose &>/dev/null; then
     COMPOSE_CMD="docker-compose"
-    echo "Docker Compose V1 detectado ✔"
 else
-    echo
-    echo "[ERROR] Docker Compose no encontrado."
+    mostrar_error \
+        "Docker Compose no esta disponible.\n\nReinicia Docker Desktop para obtener Compose V2 incluido automaticamente." \
+        "FitPro - Docker Compose No Encontrado"
     exit 1
 fi
 
-# -----------------------------------------------
-# PASO 4: Crear .env si no existe
-# -----------------------------------------------
-echo
-echo "[4/5] Verificando archivo .env..."
+obtener_ip_red_local() {
+    local ip_preferida=""
+    local ip_alternativa=""
+    local ip=""
 
-if [ -f "$ENV_FILE" ]; then
-    echo "docker/.env ya existe ✔"
-else
-    if [ -f "$ENV_EXAMPLE" ]; then
-        cp "$ENV_EXAMPLE" "$ENV_FILE"
-        echo "docker/.env creado ✔"
+    for iface in $(ifconfig -l 2>/dev/null); do
+        ip=$(ipconfig getifaddr "$iface" 2>/dev/null)
+        [ -z "$ip" ] && continue
+        [[ "$ip" == 127.* ]] && continue
+        [[ "$ip" == 172.* ]] && continue
+        [[ "$ip" == 169.254.* ]] && continue
+        [[ "$ip" == *:* ]] && continue
+
+        if [[ "$ip" == 192.168.* ]]; then
+            ip_preferida="$ip"
+            break
+        fi
+        if [[ "$ip" == 10.* ]] && [ -z "$ip_alternativa" ]; then
+            ip_alternativa="$ip"
+        fi
+    done
+
+    if [ -n "$ip_preferida" ]; then
+        echo "$ip_preferida"
+    elif [ -n "$ip_alternativa" ]; then
+        echo "$ip_alternativa"
     else
-        echo
-        echo "[ERROR] No existe .env.example"
+        echo "localhost"
+    fi
+}
+
+HOST_IP="$(obtener_ip_red_local)"
+
+if [ ! -d "$DOCKER_DIR" ]; then
+    mkdir -p "$DOCKER_DIR"
+    if [ $? -ne 0 ]; then
+        mostrar_error \
+            "No se pudo crear la carpeta de configuracion:\n$DOCKER_DIR\n\nVerifica que tienes permisos de escritura en el proyecto." \
+            "FitPro - Error de Permisos"
         exit 1
     fi
 fi
 
-# -----------------------------------------------
-# PASO 5: Levantar contenedores
-# -----------------------------------------------
-echo
-echo "[5/5] Iniciando servicios Docker..."
-echo
+cat > "$ENV_FILE" << EOF
+# =============================================================
+# FitPro - Configuracion de entorno
+# Generado automaticamente por instalar_programa.command
+# =============================================================
 
-cd "$ROOT_DIR" || exit
-
-$COMPOSE_CMD up --build -d
+HOST_IP=$HOST_IP
+EOF
 
 if [ $? -ne 0 ]; then
-    echo
-    echo "[ERROR] Falló el inicio de los contenedores."
-    echo
-    echo "Ver logs con:"
-    echo "$COMPOSE_CMD logs"
+    mostrar_error \
+        "No se pudo crear el archivo de configuracion:\n$ENV_FILE\n\nVerifica que tienes permisos de escritura en la carpeta docker/." \
+        "FitPro - Error al Crear Configuracion"
     exit 1
 fi
 
-echo
-echo "Contenedores iniciados correctamente ✔"
+cd "$ROOT_DIR" || exit 1
 
-echo
-echo "Esperando que el sistema inicie..."
-sleep 6
+$COMPOSE_CMD pull
 
-# Abrir navegador
-open http://localhost
+if [ $? -ne 0 ]; then
+    mostrar_aviso \
+        "Ocurrio un problema al descargar las imagenes de FitPro.\n\nVerifica tu conexion a internet e intenta de nuevo.\n\nSi el problema persiste, puedes intentar iniciar el programa directamente con lanzador_programa.command." \
+        "FitPro - Error al Descargar"
+    exit 1
+fi
 
-echo
-echo "FitPro iniciado correctamente ✔"
+mostrar_info \
+    "FitPro instalado correctamente.\n\nIP detectada para acceso movil: $HOST_IP\n\nPara iniciar el programa:\n→ Haz doble clic en lanzador_programa.command" \
+    "FitPro - Instalacion Completa"
+
+exit 0
