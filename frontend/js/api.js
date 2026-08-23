@@ -237,7 +237,7 @@ class ApiClient {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // EXPORTACIÓN POR PACIENTE (Excel individual)
+  // EXPORTACIÓN POR PACIENTE (Excel y PDF individual)
   // ─────────────────────────────────────────────────────────────────────────
 
   /** Descarga el historial de evaluaciones de un paciente como archivo Excel */
@@ -260,8 +260,39 @@ class ApiClient {
     URL.revokeObjectURL(url);
   }
 
+  /**
+   * Descarga el análisis PDF de un paciente: datos, historial de evaluaciones,
+   * promedios generales e indicadores de salud/composición corporal
+   * clasificados según género y edad. Diseño verde/blanco de estética médica.
+   */
+  async exportarPDF(patientId, nombrePaciente) {
+    const token = this.getAccessToken();
+
+    const respuesta = await fetch(
+      `${API_BASE_URL}/evaluations/patients/${patientId}/export/pdf`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    if (!respuesta.ok) throw new Error('Error al generar el archivo PDF');
+
+    // Obtener nombre del archivo desde la cabecera Content-Disposition
+    const disposition = respuesta.headers.get('Content-Disposition') || '';
+    const match       = disposition.match(/filename=([^;]+)/);
+    const nombre      = match ? match[1].trim() : `fitpro_analisis_${nombrePaciente.replace(/\s+/g, '_')}.pdf`;
+
+    const blob = await respuesta.blob();
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = nombre;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
-  // EXPORTACIÓN GLOBAL — Nuevos endpoints del reporte global
+  // EXPORTACIÓN GLOBAL — Endpoints del reporte global
   // ─────────────────────────────────────────────────────────────────────────
 
   /**

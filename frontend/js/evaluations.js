@@ -315,6 +315,25 @@ async function inicializarDetallePaciente() {
       btnExcel.onclick = () => api.exportarExcel(patientId, paciente.nombre_completo);
     }
 
+    // Configurar botón de exportar PDF (análisis completo del paciente)
+    const btnPdf = document.getElementById('btn-exportar-pdf');
+    if (btnPdf) {
+      btnPdf.onclick = async () => {
+        const textoOriginal = btnPdf.innerHTML;
+        btnPdf.disabled = true;
+        btnPdf.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generando...';
+        try {
+          await api.exportarPDF(patientId, paciente.nombre_completo);
+          mostrarToast('PDF generado correctamente', 'exito');
+        } catch (error) {
+          mostrarToast(error.message || 'Error al generar el PDF', 'error');
+        } finally {
+          btnPdf.disabled = false;
+          btnPdf.innerHTML = textoOriginal;
+        }
+      };
+    }
+
     // Configurar breadcrumb
     const breadcrumb = document.getElementById('breadcrumb-nombre');
     if (breadcrumb) breadcrumb.textContent = paciente.nombre_completo;
@@ -355,7 +374,7 @@ function renderizarPerfilPaciente(p) {
         ${p.telefono ? `<div class="perfil-meta-item"><i class="bi bi-telephone"></i> ${p.telefono}</div>` : ''}
         ${p.correo ? `<div class="perfil-meta-item"><i class="bi bi-envelope"></i> ${p.correo}</div>` : ''}
       </div>
-      ${p.objetivos ? `<div class="mt-2" style="font-size:.82rem;color:var(--gris-claro)"><i class="bi bi-bullseye me-1" style="color:var(--rojo-suave)"></i>${p.objetivos}</div>` : ''}
+      ${p.objetivos ? `<div class="perfil-objetivos"><i class="bi bi-bullseye" style="color:var(--verde-primario)"></i>${p.objetivos}</div>` : ''}
     </div>
     <div>
       <a href="patients.html" class="btn btn-secundario btn-sm">
@@ -450,13 +469,13 @@ function renderizarHistorialEvaluaciones(evaluaciones, patientId) {
       : `<span class="badge badge-normal">✓ OK</span>`;
 
     const condicionBadge = e.condicion_fisica
-      ? `<span style="font-size:.8rem;color:var(--gris-claro)">${capitalizarPrimera(e.condicion_fisica)}</span>`
+      ? `<span style="font-size:.8rem;color:var(--texto-muted)">${capitalizarPrimera(e.condicion_fisica)}</span>`
       : '—';
 
     return `
       <tr class="${e.tiene_alerta ? 'eval-fila-alerta' : ''}">
-        <td style="color:var(--rojo-suave);font-weight:700">${e.numero_evaluacion}</td>
-        <td style="color:var(--blanco-hueso);white-space:nowrap">${formatearFecha(e.fecha_evaluacion)}</td>
+        <td><span class="eval-num">${e.numero_evaluacion}</span></td>
+        <td style="white-space:nowrap">${formatearFecha(e.fecha_evaluacion)}</td>
         <td>${e.peso_kg != null ? e.peso_kg + ' kg' : '—'}</td>
         <td>${e.imc != null ? formatearNumero(e.imc) : '—'}</td>
         <td>${e.porcentaje_grasa != null ? e.porcentaje_grasa + '%' : '—'}</td>
@@ -487,24 +506,24 @@ function renderizarGraficasProgreso(evaluaciones) {
   // Etiquetas del eje X: número de evaluación
   const labels = evaluaciones.map(e => `Eval ${e.numero_evaluacion}`);
 
-  // Configuración base de Chart.js para reutilizar
+  // Configuración base de Chart.js — paleta verde/blanco de estética médica
   const baseConfig = {
     responsive: true,
     plugins: {
       legend: {
-        labels: { color: '#888', font: { size: 11 } }
+        labels: { color: '#374E37', font: { size: 11 } }
       },
       tooltip: {
-        backgroundColor: '#1A1A1A',
-        borderColor: '#3D3D3D',
+        backgroundColor: '#FFFFFF',
+        borderColor: '#DDE8DD',
         borderWidth: 1,
-        titleColor: '#FFF',
-        bodyColor: '#AAA'
+        titleColor: '#111827',
+        bodyColor: '#374E37'
       }
     },
     scales: {
-      x: { ticks: { color: '#555', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
-      y: { ticks: { color: '#555' }, grid: { color: 'rgba(255,255,255,0.06)' } }
+      x: { ticks: { color: '#516651', font: { size: 10 } }, grid: { color: 'rgba(22,163,74,0.06)' } },
+      y: { ticks: { color: '#516651' }, grid: { color: 'rgba(22,163,74,0.08)' } }
     }
   };
 
@@ -517,22 +536,22 @@ function renderizarGraficasProgreso(evaluaciones) {
         {
           label: 'Peso (kg)',
           data: evaluaciones.map(e => e.peso_kg),
-          borderColor: '#CC0000',
-          backgroundColor: 'rgba(204,0,0,0.1)',
+          borderColor: '#16A34A',
+          backgroundColor: 'rgba(22,163,74,0.1)',
           fill: true,
           tension: 0.4,
           pointRadius: 4,
-          pointBackgroundColor: '#CC0000'
+          pointBackgroundColor: '#16A34A'
         },
         {
           label: 'Músculo (kg)',
           data: evaluaciones.map(e => e.musculo_kg),
-          borderColor: '#00CC55',
-          backgroundColor: 'rgba(0,204,85,0.05)',
+          borderColor: '#4ADE80',
+          backgroundColor: 'rgba(74,222,128,0.05)',
           fill: false,
           tension: 0.4,
           pointRadius: 4,
-          pointBackgroundColor: '#00CC55'
+          pointBackgroundColor: '#4ADE80'
         }
       ]
     },
@@ -548,8 +567,8 @@ function renderizarGraficasProgreso(evaluaciones) {
         {
           label: '% Grasa',
           data: evaluaciones.map(e => e.porcentaje_grasa),
-          borderColor: '#FF4444',
-          backgroundColor: 'rgba(255,68,68,0.1)',
+          borderColor: '#EF4444',
+          backgroundColor: 'rgba(239,68,68,0.1)',
           fill: true,
           tension: 0.4,
           pointRadius: 4
@@ -557,8 +576,8 @@ function renderizarGraficasProgreso(evaluaciones) {
         {
           label: '% Agua',
           data: evaluaciones.map(e => e.porcentaje_agua),
-          borderColor: '#4DB8FF',
-          backgroundColor: 'rgba(77,184,255,0.05)',
+          borderColor: '#3B82F6',
+          backgroundColor: 'rgba(59,130,246,0.05)',
           fill: false,
           tension: 0.4,
           pointRadius: 4
@@ -577,8 +596,8 @@ function renderizarGraficasProgreso(evaluaciones) {
         {
           label: 'FC Reposo (lpm)',
           data: evaluaciones.map(e => e.frecuencia_cardiaca_rpm),
-          borderColor: '#CC0000',
-          backgroundColor: 'rgba(204,0,0,0.08)',
+          borderColor: '#EF4444',
+          backgroundColor: 'rgba(239,68,68,0.08)',
           fill: false,
           tension: 0.4,
           pointRadius: 4
@@ -586,8 +605,8 @@ function renderizarGraficasProgreso(evaluaciones) {
         {
           label: 'Oxigenación (%)',
           data: evaluaciones.map(e => e.oxigenacion_porcentaje),
-          borderColor: '#00DDAA',
-          backgroundColor: 'rgba(0,221,170,0.05)',
+          borderColor: '#16A34A',
+          backgroundColor: 'rgba(22,163,74,0.05)',
           fill: false,
           tension: 0.4,
           pointRadius: 4,
@@ -602,7 +621,7 @@ function renderizarGraficasProgreso(evaluaciones) {
         y2: {
           type: 'linear',
           position: 'right',
-          ticks: { color: '#555' },
+          ticks: { color: '#516651' },
           grid: { display: false }
         }
       }
@@ -618,18 +637,18 @@ function renderizarGraficasProgreso(evaluaciones) {
         {
           label: 'IMC',
           data: evaluaciones.map(e => e.imc),
-          borderColor: '#FFA500',
-          backgroundColor: 'rgba(255,165,0,0.1)',
+          borderColor: '#15803D',
+          backgroundColor: 'rgba(21,128,61,0.1)',
           fill: true,
           tension: 0.4,
           pointRadius: 5,
-          pointBackgroundColor: '#FFA500'
+          pointBackgroundColor: '#15803D'
         },
         {
           // Línea de referencia IMC normal (25)
           label: 'Límite Normal (25)',
           data: evaluaciones.map(() => 25),
-          borderColor: 'rgba(0,204,85,0.4)',
+          borderColor: 'rgba(239,68,68,0.4)',
           borderDash: [6, 4],
           borderWidth: 1,
           fill: false,
@@ -665,22 +684,20 @@ function verDetalleEvaluacion(evaluacion) {
   if (!body) return;
 
   const fila = (label, valor, unidad = '') => valor != null
-    ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gris-oscuro)">
-        <span style="color:var(--gris-claro);font-size:.85rem">${label}</span>
-        <span style="color:var(--blanco-puro);font-weight:600">${valor}${unidad}</span>
+    ? `<div class="detalle-fila">
+        <span class="detalle-fila-label">${label}</span>
+        <span class="detalle-fila-valor">${valor}${unidad}</span>
        </div>`
     : '';
 
   body.innerHTML = `
     <div style="margin-bottom:1rem">
-      <div style="font-size:.75rem;color:var(--gris-claro);text-transform:uppercase;letter-spacing:1px">
+      <div style="font-size:.75rem;color:var(--texto-muted);text-transform:uppercase;letter-spacing:1px">
         Evaluación ${evaluacion.numero_evaluacion} · ${formatearFecha(evaluacion.fecha_evaluacion)}
       </div>
     </div>
 
-    <div style="font-family:var(--fuente-display);font-size:.85rem;color:var(--rojo-suave);text-transform:uppercase;letter-spacing:2px;margin-bottom:.5rem">
-      Composición Corporal
-    </div>
+    <div class="detalle-seccion-titulo">Composición Corporal</div>
     ${fila('Peso', evaluacion.peso_kg, ' kg')}
     ${fila('Talla', evaluacion.talla_metros, ' m')}
     ${fila('IMC', evaluacion.imc ? formatearNumero(evaluacion.imc) : null, ` — ${evaluacion.imc ? clasificarIMC(evaluacion.imc) : ''}`)}
@@ -692,18 +709,14 @@ function verDetalleEvaluacion(evaluacion) {
     ${fila('Condición física', evaluacion.condicion_fisica ? capitalizarPrimera(evaluacion.condicion_fisica) : null)}
     ${fila('Riesgo cardiovascular', evaluacion.riesgo_cardiovascular ? capitalizarPrimera(evaluacion.riesgo_cardiovascular) : null)}
 
-    <div style="font-family:var(--fuente-display);font-size:.85rem;color:var(--rojo-suave);text-transform:uppercase;letter-spacing:2px;margin:1rem 0 .5rem">
-      Indicadores de Salud
-    </div>
+    <div class="detalle-seccion-titulo">Indicadores de Salud</div>
     ${fila('Oxigenación', evaluacion.oxigenacion_porcentaje, '%')}
     ${fila('FC reposo', evaluacion.frecuencia_cardiaca_rpm, ' lpm')}
     ${fila('Tensión arterial', evaluacion.tension_sistolica && evaluacion.tension_diastolica ? `${evaluacion.tension_sistolica}/${evaluacion.tension_diastolica}` : null, ' mmHg')}
     ${fila('Horas de sueño', evaluacion.horas_sueno, ' h')}
     ${fila('Perímetro abdominal', evaluacion.perimetro_abdominal_cm, ' cm')}
 
-    <div style="font-family:var(--fuente-display);font-size:.85rem;color:var(--rojo-suave);text-transform:uppercase;letter-spacing:2px;margin:1rem 0 .5rem">
-      Evaluación Física
-    </div>
+    <div class="detalle-seccion-titulo">Evaluación Física</div>
     ${fila('Índice Ruffier', evaluacion.indice_ruffier != null ? `${formatearNumero(evaluacion.indice_ruffier)} (${clasificarRuffier(evaluacion.indice_ruffier)})` : null)}
     ${fila('Fuerza manual derecha', evaluacion.fuerza_manual_der_kg, ' kg')}
     ${fila('Fuerza manual izquierda', evaluacion.fuerza_manual_izq_kg, ' kg')}
@@ -716,11 +729,11 @@ function verDetalleEvaluacion(evaluacion) {
       </div>` : ''}
 
     ${evaluacion.notas_entrenador ? `
-      <div class="mt-3" style="background:var(--negro-suave);border-radius:var(--radio-md);padding:var(--espaciado-md)">
-        <div style="font-size:.75rem;color:var(--gris-claro);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">
-          <i class="bi bi-pencil me-1"></i> Notas del entrenador
+      <div class="detalle-notas">
+        <div class="detalle-notas-titulo">
+          <i class="bi bi-pencil"></i> Notas del entrenador
         </div>
-        <div style="font-size:.88rem;color:var(--blanco-hueso)">${evaluacion.notas_entrenador}</div>
+        <div>${evaluacion.notas_entrenador}</div>
       </div>` : ''}
   `;
 
