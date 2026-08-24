@@ -228,7 +228,9 @@
       border-radius: var(--radio-sm);
     }
 
-    /* ── Preview del Índice Ruffier ── */
+    /* ── Preview del Índice Ruffier / Wells / Dinamómetro ── */
+    /* Se reutiliza la misma tarjeta visual para los tres tests funcionales,
+       manteniendo consistencia con la paleta verde/blanco del sistema. */
     .ruffier-preview {
       background: var(--gris-panel);
       border: 1.5px solid var(--gris-borde);
@@ -692,30 +694,54 @@
               </div>
             </div>
 
-            <!-- Fuerza manual y Test de Wells -->
+            <!-- Fuerza manual (Dinamómetro) y Test de Wells -->
             <div class="sub-seccion mt-4">
               <i class="bi bi-hand-index-thumb me-1"></i>
-              Fuerza Manual y Flexibilidad
+              Test de Dinamómetro (Fuerza) y Test de Wells (Flexibilidad)
             </div>
 
-            <div class="campos-3">
-              <div class="form-group">
-                <label class="form-label">Fuerza mano derecha (kg)</label>
-                <input type="number" id="eval-fuerza-der" class="form-control"
-                  placeholder="35.0" step="0.1" min="0" max="100" />
-                <div class="campo-ayuda">Dinamometría derecha</div>
+            <div class="grid-2" style="gap:var(--sp-xl)">
+              <!-- Inputs de fuerza manual y Wells -->
+              <div class="campos-3" style="align-content:start">
+                <div class="form-group">
+                  <label class="form-label">Fuerza mano derecha (kg)</label>
+                  <input type="number" id="eval-fuerza-der" class="form-control"
+                    placeholder="35.0" step="0.1" min="0" max="100"
+                    oninput="calcularFuerzaPreview()" />
+                  <div class="campo-ayuda">Dinamometría derecha</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Fuerza mano izquierda (kg)</label>
+                  <input type="number" id="eval-fuerza-izq" class="form-control"
+                    placeholder="32.0" step="0.1" min="0" max="100"
+                    oninput="calcularFuerzaPreview()" />
+                  <div class="campo-ayuda">Dinamometría izquierda</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Test de Wells (cm)</label>
+                  <input type="number" id="eval-wells" class="form-control"
+                    placeholder="18.0" step="0.1" min="-50" max="60"
+                    oninput="calcularWellsPreview()" />
+                  <div class="campo-ayuda">+ adelante / − atrás del cero</div>
+                </div>
               </div>
-              <div class="form-group">
-                <label class="form-label">Fuerza mano izquierda (kg)</label>
-                <input type="number" id="eval-fuerza-izq" class="form-control"
-                  placeholder="32.0" step="0.1" min="0" max="100" />
-                <div class="campo-ayuda">Dinamometría izquierda</div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Test de Wells — Flexibilidad (cm)</label>
-                <input type="number" id="eval-wells" class="form-control"
-                  placeholder="18.0" step="0.1" min="-50" max="60" />
-                <div class="campo-ayuda">+ adelante / − atrás del cero</div>
+
+              <!-- Previews: Dinamómetro y Wells, clasificados según género y edad del paciente -->
+              <div class="d-flex flex-column gap-3">
+                <div class="ruffier-preview" id="fuerza-preview-box">
+                  <div class="ruffier-formula">Fuerza promedio (der. + izq.) según género y edad</div>
+                  <div class="ruffier-valor" id="fuerza-preview-valor">—</div>
+                  <div class="ruffier-clasif" id="fuerza-preview-clasif">
+                    Ingrese la fuerza manual
+                  </div>
+                </div>
+                <div class="ruffier-preview" id="wells-preview-box">
+                  <div class="ruffier-formula">Flexibilidad según género</div>
+                  <div class="ruffier-valor" id="wells-preview-valor">—</div>
+                  <div class="ruffier-clasif" id="wells-preview-clasif">
+                    Ingrese el valor del test
+                  </div>
+                </div>
               </div>
             </div>
 

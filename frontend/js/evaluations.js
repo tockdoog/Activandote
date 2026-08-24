@@ -22,6 +22,10 @@ const esDetalle = !!document.getElementById('tbody-evaluaciones');
 // Instancias de Chart.js para evitar duplicados
 const graficas = {};
 
+// Paciente actualmente en contexto (formulario o detalle). Se usa para
+// clasificar el Test de Wells y el Test de Dinamómetro según género y edad.
+let pacienteActual = null;
+
 // -----------------------------------------------
 // INICIALIZACIÓN SEGÚN LA PÁGINA
 // -----------------------------------------------
@@ -76,6 +80,11 @@ async function inicializarFormulario() {
   // Cargar los datos del paciente para el contexto del formulario
   try {
     const paciente = await api.obtenerPaciente(patientId);
+
+    // Se guarda en el ámbito del módulo para usarlo en las vistas previas
+    // de Test de Wells y Test de Dinamómetro (necesitan género y edad).
+    pacienteActual = paciente;
+
     const iniciales = paciente.nombre_completo.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 
     document.getElementById('eval-paciente-avatar').textContent = iniciales;
@@ -259,6 +268,60 @@ function calcularRuffierPreview() {
   }
 }
 
+/**
+ * Calcula y muestra en tiempo real la clasificación del Test de Wells
+ * (flexibilidad) según el género del paciente en contexto.
+ */
+function calcularWellsPreview() {
+  const valor = parseFloat(document.getElementById('eval-wells')?.value);
+  const valorEl = document.getElementById('wells-preview-valor');
+  const clasifEl = document.getElementById('wells-preview-clasif');
+
+  if (!valorEl || !clasifEl) return;
+
+  if (!isNaN(valor) && pacienteActual) {
+    const clasificacion = clasificarWells(valor, pacienteActual.genero);
+    valorEl.textContent = `${valor.toFixed(1)} cm`;
+    clasifEl.textContent = clasificacion;
+    valorEl.style.color = esClasificacionSaludable(clasificacion)
+      ? 'var(--verde-primario)'
+      : 'var(--rojo-alerta)';
+  } else {
+    valorEl.textContent = '—';
+    valorEl.style.color = 'var(--texto-principal)';
+    clasifEl.textContent = 'Ingrese el valor del test';
+  }
+}
+
+/**
+ * Calcula y muestra en tiempo real la clasificación del Test de Dinamómetro
+ * (fuerza de prensión manual), promediando ambas manos cuando hay datos de
+ * las dos, según el género y la edad del paciente en contexto.
+ */
+function calcularFuerzaPreview() {
+  const der = parseFloat(document.getElementById('eval-fuerza-der')?.value);
+  const izq = parseFloat(document.getElementById('eval-fuerza-izq')?.value);
+  const valores = [der, izq].filter(v => !isNaN(v));
+  const valorEl = document.getElementById('fuerza-preview-valor');
+  const clasifEl = document.getElementById('fuerza-preview-clasif');
+
+  if (!valorEl || !clasifEl) return;
+
+  if (valores.length > 0 && pacienteActual) {
+    const promedio = valores.reduce((a, b) => a + b, 0) / valores.length;
+    const clasificacion = clasificarFuerzaDinamometro(promedio, pacienteActual.genero, pacienteActual.edad);
+    valorEl.textContent = `${promedio.toFixed(1)} kg`;
+    clasifEl.textContent = clasificacion;
+    valorEl.style.color = esClasificacionSaludable(clasificacion)
+      ? 'var(--verde-primario)'
+      : 'var(--rojo-alerta)';
+  } else {
+    valorEl.textContent = '—';
+    valorEl.style.color = 'var(--texto-principal)';
+    clasifEl.textContent = 'Ingrese la fuerza manual';
+  }
+}
+
 /** Clasificación del IMC según rangos OMS */
 function clasificarIMC(imc) {
   if (imc < 16)   return 'Delgadez severa';
@@ -278,6 +341,68 @@ function clasificarRuffier(ir) {
   if (ir <= 10) return 'Buena';
   if (ir <= 15) return 'Regular';
   return 'Deficiente';
+}
+
+/**
+ * Normaliza el género recibido a 'femenino' o 'masculino' para las tablas
+ * de referencia. Refleja la misma regla usada en el backend
+ * (app/utils/calculations.py -> _perfil_genero).
+ */
+function _perfilGenero(genero) {
+  return (genero && genero.toLowerCase() === 'femenino') ? 'femenino' : 'masculino';
+}
+
+/**
+ * Límites [excelente, muy_buena, buena, regular] en cm del Test de Wells
+ * según género. Debe reflejar siempre los mismos valores que
+ * `_limites_wells()` en el backend, para que la vista previa y el reporte
+ * PDF coincidan.
+ */
+function limitesWells(genero) {
+  return _perfilGenero(genero) === 'femenino' ? [30, 25, 20, 15] : [25, 20, 15, 10];
+}
+
+/** Clasificación del Test de Wells (flexibilidad) según género */
+function clasificarWells(valorCm, genero) {
+  const [excelente, muyBuena, buena, regular] = limitesWells(genero);
+  if (valorCm > excelente) return 'Excelente';
+  if (valorCm > muyBuena)  return 'Muy buena';
+  if (valorCm > buena)     return 'Buena';
+  if (valorCm > regular)   return 'Regular';
+  return 'Deficiente';
+}
+
+/**
+ * Límites [excelente, buena, regular] en kg de fuerza de prensión manual
+ * (dinamometría) según género y edad. Debe reflejar siempre los mismos
+ * valores que `_limites_fuerza_dinamometro()` en el backend.
+ */
+function limitesFuerzaDinamometro(genero, edad) {
+  const esMujer = _perfilGenero(genero) === 'femenino';
+  const edadEfectiva = edad || 30;
+
+  if (esMujer) {
+    if (edadEfectiva < 40) return [32, 25, 18];
+    if (edadEfectiva < 60) return [28, 22, 16];
+    return [22, 17, 12];
+  }
+  if (edadEfectiva < 40) return [50, 40, 30];
+  if (edadEfectiva < 60) return [45, 35, 25];
+  return [35, 27, 20];
+}
+
+/** Clasificación del Test de Dinamómetro (fuerza de prensión) según género y edad */
+function clasificarFuerzaDinamometro(valorKg, genero, edad) {
+  const [excelente, buena, regular] = limitesFuerzaDinamometro(genero, edad);
+  if (valorKg >= excelente) return 'Excelente';
+  if (valorKg >= buena)     return 'Buena';
+  if (valorKg >= regular)   return 'Regular';
+  return 'Deficiente';
+}
+
+/** Indica si una clasificación en texto corresponde a un resultado saludable/bueno */
+function esClasificacionSaludable(clasificacion) {
+  return clasificacion === 'Excelente' || clasificacion === 'Muy buena' || clasificacion === 'Buena';
 }
 
 // ===============================================
@@ -303,6 +428,10 @@ async function inicializarDetallePaciente() {
       api.obtenerPaciente(patientId),
       api.listarEvaluaciones(patientId)
     ]);
+
+    // Se guarda en el ámbito del módulo para clasificar Wells y Dinamómetro
+    // dentro del modal de detalle de cada evaluación.
+    pacienteActual = paciente;
 
     renderizarPerfilPaciente(paciente);
     renderizarIndicadoresUltimos(evaluaciones);
@@ -677,7 +806,9 @@ function crearGrafica(canvasId, config) {
 
 /**
  * Muestra el detalle completo de una evaluación en un modal.
- * Presenta todos los indicadores organizados por sección.
+ * Presenta todos los indicadores organizados por sección, incluyendo la
+ * clasificación del Test de Wells y del Test de Dinamómetro según el
+ * género y la edad del paciente en contexto (pacienteActual).
  */
 function verDetalleEvaluacion(evaluacion) {
   const body = document.getElementById('detalle-eval-body');
@@ -689,6 +820,22 @@ function verDetalleEvaluacion(evaluacion) {
         <span class="detalle-fila-valor">${valor}${unidad}</span>
        </div>`
     : '';
+
+  // --- Texto del Test de Wells con su clasificación según género ---
+  const wellsTexto = (evaluacion.test_wells_cm != null)
+    ? `${evaluacion.test_wells_cm} cm${pacienteActual ? ' — ' + clasificarWells(evaluacion.test_wells_cm, pacienteActual.genero) : ''}`
+    : null;
+
+  // --- Texto del Test de Dinamómetro con su clasificación según género y edad ---
+  const valoresFuerza = [evaluacion.fuerza_manual_der_kg, evaluacion.fuerza_manual_izq_kg]
+    .filter(v => v != null);
+  let fuerzaPromedioTexto = null;
+  if (valoresFuerza.length > 0) {
+    const promedio = valoresFuerza.reduce((a, b) => a + b, 0) / valoresFuerza.length;
+    fuerzaPromedioTexto = pacienteActual
+      ? `${promedio.toFixed(1)} kg — ${clasificarFuerzaDinamometro(promedio, pacienteActual.genero, pacienteActual.edad)}`
+      : `${promedio.toFixed(1)} kg`;
+  }
 
   body.innerHTML = `
     <div style="margin-bottom:1rem">
@@ -718,9 +865,10 @@ function verDetalleEvaluacion(evaluacion) {
 
     <div class="detalle-seccion-titulo">Evaluación Física</div>
     ${fila('Índice Ruffier', evaluacion.indice_ruffier != null ? `${formatearNumero(evaluacion.indice_ruffier)} (${clasificarRuffier(evaluacion.indice_ruffier)})` : null)}
-    ${fila('Fuerza manual derecha', evaluacion.fuerza_manual_der_kg, ' kg')}
-    ${fila('Fuerza manual izquierda', evaluacion.fuerza_manual_izq_kg, ' kg')}
-    ${fila('Test de Wells', evaluacion.test_wells_cm, ' cm')}
+    ${fila('Fuerza mano derecha', evaluacion.fuerza_manual_der_kg, ' kg')}
+    ${fila('Fuerza mano izquierda', evaluacion.fuerza_manual_izq_kg, ' kg')}
+    ${fila('Fuerza — Test de Dinamómetro', fuerzaPromedioTexto)}
+    ${fila('Test de Wells — Flexibilidad', wellsTexto)}
 
     ${evaluacion.tiene_alerta ? `
       <div class="alerta alerta-error mt-3">

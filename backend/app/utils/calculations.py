@@ -1,7 +1,8 @@
 # backend/app/utils/calculations.py
-# Funciones de cálculo clínico-deportivo: IMC, Ruffier, alertas de salud,
-# rangos de referencia saludable por género/edad y veredicto general del
-# paciente. Usado por el reporte PDF orientado al paciente (visual y claro).
+# Funciones de cálculo clínico-deportivo: IMC, Ruffier, Test de Wells, Test de
+# Dinamómetro, alertas de salud, rangos de referencia saludable por género/edad
+# y veredicto general del paciente. Usado por el reporte PDF orientado al
+# paciente (visual y claro) y por las vistas previas en tiempo real del frontend.
 
 from typing import Optional, Tuple, List, Dict, Any
 
@@ -81,31 +82,27 @@ def clasificar_ruffier(indice: float) -> str:
 # -----------------------------------------------
 def clasificar_wells(valor_cm: float, genero: str, edad: int) -> str:
     """
-    Clasifica el resultado del Test de Wells según género y edad.
-    Valores positivos = flexibilidad adelante del cero.
+    Clasifica el resultado del Test de Wells (sit-and-reach / flexibilidad)
+    según género. Valores positivos = se sobrepasa el punto cero (mejor
+    flexibilidad); valores negativos = no se alcanza el cero.
+    El parámetro edad se conserva por consistencia con el resto de
+    clasificadores del sistema (uso reservado para futuros ajustes finos).
     """
-    if genero.lower() == "femenino":
-        if valor_cm > 30:
-            return "Excelente"
-        elif valor_cm > 25:
-            return "Muy buena"
-        elif valor_cm > 20:
-            return "Buena"
-        elif valor_cm > 15:
-            return "Regular"
-        else:
-            return "Deficiente"
+    if valor_cm is None:
+        return "Sin datos"
+
+    limite_excelente, limite_muy_buena, limite_buena, limite_regular = _limites_wells(genero)
+
+    if valor_cm > limite_excelente:
+        return "Excelente"
+    elif valor_cm > limite_muy_buena:
+        return "Muy buena"
+    elif valor_cm > limite_buena:
+        return "Buena"
+    elif valor_cm > limite_regular:
+        return "Regular"
     else:
-        if valor_cm > 25:
-            return "Excelente"
-        elif valor_cm > 20:
-            return "Muy buena"
-        elif valor_cm > 15:
-            return "Buena"
-        elif valor_cm > 10:
-            return "Regular"
-        else:
-            return "Deficiente"
+        return "Deficiente"
 
 
 # -----------------------------------------------
@@ -229,6 +226,64 @@ def clasificar_masa_osea(porcentaje_hueso: float, genero: str) -> str:
         return "Normal"
     else:
         return "Alta"
+
+
+def _limites_wells(genero: str) -> list:
+    """
+    Retorna [limite_excelente, limite_muy_buena, limite_buena, limite_regular]
+    en cm del Test de Wells (flexibilidad), según género. Se usan los mismos
+    puntos de corte que clasificar_wells() para que la clasificación en texto
+    y la barra visual del reporte PDF sean siempre consistentes entre sí.
+    """
+    es_mujer = _perfil_genero(genero) == "femenino"
+    return [30, 25, 20, 15] if es_mujer else [25, 20, 15, 10]
+
+
+def _limites_fuerza_dinamometro(genero: str, edad: int) -> list:
+    """
+    Retorna [limite_excelente, limite_buena, limite_regular] en kilogramos de
+    fuerza de prensión manual (dinamometría), según género y rango de edad.
+    A diferencia de la mayoría de indicadores, aquí un valor MÁS ALTO es mejor.
+    Los rangos se basan en referencias generales de fuerza de agarre en
+    población adulta; no reemplazan una valoración deportiva especializada.
+    """
+    es_mujer = _perfil_genero(genero) == "femenino"
+    edad = edad if edad else 30  # valor por defecto si no hay edad registrada
+
+    if es_mujer:
+        if edad < 40:
+            return [32, 25, 18]
+        elif edad < 60:
+            return [28, 22, 16]
+        else:
+            return [22, 17, 12]
+    else:
+        if edad < 40:
+            return [50, 40, 30]
+        elif edad < 60:
+            return [45, 35, 25]
+        else:
+            return [35, 27, 20]
+
+
+def clasificar_fuerza_dinamometro(valor_kg: float, genero: str, edad: int) -> str:
+    """
+    Clasifica el resultado del Test de Dinamómetro (fuerza de prensión manual)
+    según género y edad. A mayor fuerza registrada, mejor es la clasificación.
+    """
+    if valor_kg is None:
+        return "Sin datos"
+
+    limite_excelente, limite_buena, limite_regular = _limites_fuerza_dinamometro(genero, edad)
+
+    if valor_kg >= limite_excelente:
+        return "Excelente"
+    elif valor_kg >= limite_buena:
+        return "Buena"
+    elif valor_kg >= limite_regular:
+        return "Regular"
+    else:
+        return "Deficiente"
 
 
 def clasificar_presion_arterial(sistolica: int, diastolica: int) -> str:
@@ -451,8 +506,9 @@ def _ficha_indicador(
 ) -> Dict[str, Any]:
     """
     Construye el diccionario estándar de un indicador para el reporte visual.
-    nota_extra es un dato complementario opcional (ej. equivalencia en kg)
-    que se muestra debajo de la barra de rango en el PDF.
+    nota_extra es un dato complementario opcional (ej. equivalencia en kg,
+    o el detalle de cada mano en el dinamómetro) que se muestra debajo de
+    la barra de rango en el PDF.
     """
     return {
         "campo": campo,
@@ -474,8 +530,12 @@ def generar_analisis_completo(evaluacion: Dict[str, Any], genero: str, edad: int
                                talla_metros: Optional[float]) -> Dict[str, Any]:
     """
     Genera el análisis visual completo de una evaluación: una ficha por cada
-    indicador de salud/composición corporal con su rango saludable, más un
-    veredicto general del estado del paciente.
+    indicador de salud/composición/condición física con su rango saludable,
+    más un veredicto general del estado del paciente.
+
+    Incluye: IMC, peso, % grasa, % agua, % masa ósea, perímetro abdominal,
+    presión arterial, Test de Wells (flexibilidad) y Test de Dinamómetro
+    (fuerza de prensión manual).
 
     Retorna {"indicadores": [...], "veredicto": {...}}
     """
@@ -586,6 +646,52 @@ def generar_analisis_completo(evaluacion: Dict[str, Any], genero: str, edad: int
             clasif_presion, es_normal,
             escala_min=40, escala_max=130, zona_min=60, zona_max=79,
             texto_referencia="Menos de 80 mmHg"
+        ))
+
+    # ── Test de Wells — Flexibilidad ─────────────────────────────────────
+    # Evalúa la flexibilidad de isquiotibiales y zona lumbar. Un valor más
+    # alto (más adelante del punto cero) indica mejor flexibilidad.
+    wells = evaluacion.get("test_wells_cm")
+    if wells is not None:
+        limites_wells = _limites_wells(genero)
+        zona_min_wells = limites_wells[2]  # a partir de "Buena" se considera saludable
+        escala_max_wells = limites_wells[0] + 10
+
+        indicadores.append(_ficha_indicador(
+            "test_wells_cm", f"Test de Wells — Flexibilidad{nota_genero}", wells, "cm",
+            clasificar_wells(wells, genero, edad),
+            wells >= zona_min_wells,
+            escala_min=-15, escala_max=escala_max_wells,
+            zona_min=zona_min_wells, zona_max=escala_max_wells,
+            texto_referencia=f"{zona_min_wells} cm o más (buena flexibilidad)"
+        ))
+
+    # ── Test de Dinamómetro — Fuerza de prensión manual ──────────────────
+    # Se promedia la fuerza de ambas manos cuando están disponibles; si solo
+    # se registró una mano, se usa esa. Un valor más alto indica mejor fuerza.
+    fuerza_der = evaluacion.get("fuerza_manual_der_kg")
+    fuerza_izq = evaluacion.get("fuerza_manual_izq_kg")
+    valores_fuerza = [v for v in (fuerza_der, fuerza_izq) if v is not None]
+
+    if valores_fuerza:
+        fuerza_promedio = round(sum(valores_fuerza) / len(valores_fuerza), 1)
+        limites_fuerza = _limites_fuerza_dinamometro(genero, edad)
+        zona_min_fuerza = limites_fuerza[1]  # a partir de "Buena" se considera saludable
+        escala_max_fuerza = limites_fuerza[0] + 15
+
+        nota_manos = None
+        if fuerza_der is not None and fuerza_izq is not None:
+            nota_manos = f"Mano derecha: {fuerza_der} kg — Mano izquierda: {fuerza_izq} kg"
+
+        indicadores.append(_ficha_indicador(
+            "fuerza_dinamometro", f"Fuerza de prensión manual (dinamómetro){nota_genero}",
+            fuerza_promedio, "kg",
+            clasificar_fuerza_dinamometro(fuerza_promedio, genero, edad),
+            fuerza_promedio >= zona_min_fuerza,
+            escala_min=0, escala_max=escala_max_fuerza,
+            zona_min=zona_min_fuerza, zona_max=escala_max_fuerza,
+            texto_referencia=f"{zona_min_fuerza} kg o más (buena fuerza) según su género y edad",
+            nota_extra=nota_manos
         ))
 
     # ── Veredicto general del estado del paciente ────────────────────────
