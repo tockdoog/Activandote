@@ -1,0 +1,394 @@
+/* frontend/css/consent.css */
+/* Estilos exclusivos del módulo de Habeas Data y Consentimiento Informado.
+   Paleta: verde y blanco — estética médica/clínica, coherente con la
+   paleta general definida en main.css (var(--verde-primario), etc.).
+   Se aplica solo dentro de .consent-shell para mantener el estilo
+   encapsulado y no interferir con otras vistas. */
+
+.consent-shell {
+  /* Variables locales del módulo, tomadas de la paleta global de main.css
+     para que un cambio de marca futuro solo requiera tocar main.css */
+  --cs-verde:        var(--verde-primario);
+  --cs-verde-oscuro:  var(--verde-oscuro);
+  --cs-verde-suave:   var(--verde-suave);
+  --cs-verde-translucido: var(--verde-translucido);
+  --cs-verde-borde:   var(--verde-borde);
+  --cs-verde-glow:    var(--verde-glow);
+  --cs-blanco:        var(--blanco-puro);
+  --cs-gris-claro:    var(--gris-panel);
+  --cs-gris-texto:    var(--texto-terciario);
+  --cs-borde:         var(--gris-borde);
+
+  background: var(--cs-blanco);
+  color: var(--texto-principal);
+  border-radius: var(--radio-2xl);
+  padding: var(--sp-xl);
+  min-height: 60vh;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--cs-borde);
+  box-shadow: var(--sombra-elevada);
+}
+
+/* Línea verde decorativa superior, estilo "sello" institucional/clínico */
+.consent-shell::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--cs-verde-oscuro), var(--cs-verde), var(--cs-verde-suave));
+}
+
+/* -----------------------------------------------
+   ENCABEZADO
+   ----------------------------------------------- */
+.consent-header {
+  text-align: center;
+  margin-bottom: var(--sp-xl);
+}
+
+.consent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--cs-verde-translucido);
+  border: 1px solid var(--cs-verde-borde);
+  color: var(--cs-verde-oscuro);
+  padding: 5px 16px;
+  border-radius: var(--radio-pill);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: var(--sp-md);
+}
+
+.consent-titulo {
+  font-family: var(--fuente-display);
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--texto-principal);
+  text-transform: uppercase;
+}
+
+.consent-titulo span { color: var(--cs-verde); }
+
+.consent-subtitulo {
+  font-size: 0.9rem;
+  color: var(--texto-muted);
+  margin-top: 6px;
+}
+
+/* -----------------------------------------------
+   INDICADOR DE PASOS
+   ----------------------------------------------- */
+.consent-pasos {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-md);
+  margin-bottom: var(--sp-xl);
+  flex-wrap: wrap;
+}
+
+.consent-paso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--texto-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.55;
+  transition: opacity 0.25s ease;
+}
+
+.consent-paso.activo { opacity: 1; color: var(--texto-principal); }
+.consent-paso.completado { opacity: 1; color: var(--cs-verde); }
+
+.consent-paso-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+/* -----------------------------------------------
+   TARJETAS DE CONTENIDO
+   ----------------------------------------------- */
+.consent-panel {
+  background: var(--cs-gris-claro);
+  border: 1px solid var(--cs-borde);
+  border-radius: var(--radio-xl);
+  padding: var(--sp-xl);
+  max-width: 720px;
+  margin: 0 auto;
+  animation: fadeIn 0.3s ease;
+}
+
+.consent-texto-breve {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--cs-gris-texto);
+  margin-bottom: var(--sp-lg);
+}
+
+.consent-texto-breve strong { color: var(--texto-principal); }
+
+.consent-btn-info {
+  background: var(--cs-blanco);
+  border: 1px solid var(--cs-verde);
+  color: var(--cs-verde-oscuro);
+  padding: 8px 18px;
+  border-radius: var(--radio-md);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: var(--sp-lg);
+}
+
+.consent-btn-info:hover {
+  background: var(--cs-verde);
+  color: var(--cs-blanco);
+  box-shadow: 0 0 20px var(--cs-verde-glow);
+}
+
+/* -----------------------------------------------
+   CHECKBOXES ESTILO PREMIUM (clínico)
+   ----------------------------------------------- */
+.consent-check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--cs-blanco);
+  border: 1px solid var(--cs-borde);
+  border-radius: var(--radio-lg);
+  margin-bottom: var(--sp-md);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.consent-check-item:hover { border-color: var(--cs-verde-borde); }
+
+.consent-check-item.marcado {
+  border-color: var(--cs-verde);
+  background: var(--cs-verde-translucido);
+}
+
+.consent-check-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  accent-color: var(--cs-verde);
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.consent-check-texto {
+  font-size: 0.87rem;
+  color: var(--cs-gris-texto);
+  line-height: 1.5;
+}
+
+.consent-check-texto strong { color: var(--texto-principal); }
+
+/* -----------------------------------------------
+   FIRMA EN PANTALLA
+   El contenedor debe tener SIEMPRE una altura fija en CSS (no depender
+   solo de flujo), porque el canvas se dimensiona por JS leyendo el
+   tamaño real en pantalla del contenedor (ver js/consent.js).
+   ----------------------------------------------- */
+.consent-firma-box {
+  background: var(--cs-blanco);
+  border-radius: var(--radio-lg);
+  border: 2px dashed var(--cs-verde);
+  position: relative;
+  touch-action: none;
+  height: 220px;
+}
+
+#canvas-firma {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radio-lg);
+  cursor: crosshair;
+}
+
+.consent-firma-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gris-400);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+/* -----------------------------------------------
+   INPUT DE DÍGITOS
+   ----------------------------------------------- */
+.consent-input-digitos {
+  width: 160px;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 10px;
+  background: var(--cs-blanco);
+  border: 1.5px solid var(--gris-300);
+  color: var(--texto-principal);
+  border-radius: var(--radio-md);
+  padding: 10px 0;
+}
+
+.consent-input-digitos:focus {
+  outline: none;
+  border-color: var(--cs-verde);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+/* -----------------------------------------------
+   BOTONES
+   ----------------------------------------------- */
+.consent-btn-primario {
+  background: linear-gradient(135deg, var(--cs-verde), var(--cs-verde-oscuro));
+  color: var(--cs-blanco);
+  border: none;
+  padding: 12px 28px;
+  border-radius: var(--radio-md);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px var(--cs-verde-glow);
+}
+
+.consent-btn-primario:hover:not(:disabled) { transform: translateY(-2px); }
+
+.consent-btn-primario:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Botón secundario también usado para la descarga de evidencia en PDF.
+   Mantiene estado disabled con spinner mientras se genera el archivo. */
+.consent-btn-secundario {
+  background: var(--cs-blanco);
+  border: 1px solid var(--cs-borde);
+  color: var(--texto-muted);
+  padding: 12px 24px;
+  border-radius: var(--radio-md);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.consent-btn-secundario:hover:not(:disabled) { border-color: var(--cs-verde); color: var(--cs-verde-oscuro); }
+
+.consent-btn-secundario:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.consent-acciones {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-md);
+  margin-top: var(--sp-xl);
+  flex-wrap: wrap;
+}
+
+/* -----------------------------------------------
+   PANTALLA DE ÉXITO
+   ----------------------------------------------- */
+.consent-exito-icono {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--cs-verde-translucido);
+  border: 2px solid var(--cs-verde);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--cs-verde-oscuro);
+  margin: 0 auto var(--sp-lg);
+}
+
+.consent-hash-box {
+  background: var(--cs-gris-claro);
+  border: 1px solid var(--cs-borde);
+  border-radius: var(--radio-md);
+  padding: 10px 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  color: var(--cs-gris-texto);
+  word-break: break-all;
+  margin-top: var(--sp-sm);
+}
+
+/* -----------------------------------------------
+   MODAL DE INFORMACIÓN COMPLETA
+   ----------------------------------------------- */
+.consent-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 40, 20, 0.35);
+  backdrop-filter: blur(4px);
+  z-index: 3000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-lg);
+}
+
+.consent-modal-overlay.activo { display: flex; }
+
+.consent-modal-caja {
+  background: var(--cs-blanco);
+  border: 1px solid var(--cs-borde);
+  border-radius: var(--radio-xl);
+  max-width: 640px;
+  width: 100%;
+  max-height: 82vh;
+  overflow-y: auto;
+  padding: var(--sp-xl);
+  color: var(--cs-gris-texto);
+  box-shadow: var(--sombra-elevada);
+}
+
+.consent-modal-caja h3 {
+  color: var(--texto-principal);
+  font-family: var(--fuente-display);
+  margin-bottom: var(--sp-md);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.consent-modal-caja pre {
+  white-space: pre-wrap;
+  font-family: var(--fuente-cuerpo);
+  font-size: 0.87rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 640px) {
+  .consent-titulo { font-size: 1.5rem; }
+  .consent-panel { padding: var(--sp-lg); }
+  .consent-acciones { flex-direction: column-reverse; }
+  .consent-input-digitos { width: 100%; }
+}

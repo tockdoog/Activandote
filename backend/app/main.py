@@ -14,8 +14,9 @@ import logging
 import time
 
 from app.config import settings
-from app.database import create_tables
-from app.routers import auth, patients, evaluations, dashboard
+from app.database import create_tables, SessionLocal
+from app.routers import auth, patients, evaluations, dashboard, consent
+from app.utils.consent import sembrar_documento_inicial
 
 # Importar el router del módulo de licencias
 from app.licensing.router import router as licensing_router
@@ -46,6 +47,13 @@ async def lifespan(app: FastAPI):
     create_tables()
     logger.info("Base de datos lista")
 
+    # Sembrar el documento inicial de consentimiento (Habeas Data) si no existe
+    db = SessionLocal()
+    try:
+        sembrar_documento_inicial(db)
+    finally:
+        db.close()
+
     # Registrar en log si CORS está en modo permisivo (red local)
     if settings.CORS_ALLOW_ALL:
         logger.warning(
@@ -68,12 +76,14 @@ app = FastAPI(
     description="""
     ## Sistema de Gestión Fitness y Seguimiento Clínico
 
-    API REST para registro de pacientes, evaluaciones físicas periódicas
-    y seguimiento estadístico del progreso en condición física.
+    API REST para registro de pacientes, evaluaciones físicas periódicas,
+    seguimiento estadístico del progreso y gestión de Habeas Data /
+    consentimiento informado.
 
     ### Funcionalidades:
     - 🔐 Autenticación JWT segura
     - 👥 Gestión de pacientes
+    - 📄 Habeas Data y consentimiento informado con evidencia y auditoría
     - 📊 Evaluaciones físicas completas
     - 📈 Dashboard estadístico
     - 📄 Exportación Excel/PDF
@@ -199,6 +209,7 @@ app.include_router(auth.router,         prefix=API_PREFIX)
 app.include_router(patients.router,     prefix=API_PREFIX)
 app.include_router(evaluations.router,  prefix=API_PREFIX)
 app.include_router(dashboard.router,    prefix=API_PREFIX)
+app.include_router(consent.router,      prefix=API_PREFIX)
 
 # Registrar el router del módulo de licencias mensuales
 app.include_router(licensing_router,    prefix=API_PREFIX)

@@ -1,8 +1,8 @@
 # backend/app/utils/security.py
-# Utilidades de seguridad: JWT, hashing de contraseñas y validaciones
+# Utilidades de seguridad: JWT, hashing de contraseñas, validaciones y roles
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, List
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -137,3 +137,23 @@ async def get_current_active_user(current_user=Depends(get_current_user)):
             detail="Usuario inactivo"
         )
     return current_user
+
+
+# -----------------------------------------------
+# Control de acceso por rol — usado por endpoints sensibles
+# (ej. módulo de Habeas Data / consentimiento informado)
+# -----------------------------------------------
+def require_roles(roles_permitidos: List):
+    """
+    Fábrica de dependencias FastAPI: retorna una dependencia que solo permite
+    continuar si el usuario autenticado tiene alguno de los roles indicados.
+    Uso: current_user = Depends(require_roles([UserRole.ADMIN]))
+    """
+    async def verificador(current_user=Depends(get_current_active_user)):
+        if current_user.role not in roles_permitidos:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permisos suficientes para realizar esta acción"
+            )
+        return current_user
+    return verificador

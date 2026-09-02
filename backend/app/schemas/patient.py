@@ -43,6 +43,7 @@ class PatientCreate(BaseModel):
     peso_inicial_kg: float = Field(..., ge=10.0, le=500.0)
     telefono: Optional[str] = Field(None, max_length=20)
     correo: Optional[str] = Field(None)
+    numero_documento: Optional[str] = Field(None, min_length=4, max_length=20)
     fecha_nacimiento: Optional[date] = None
     fecha_ingreso: Optional[date] = None
     observaciones: Optional[str] = None
@@ -59,6 +60,7 @@ class PatientCreate(BaseModel):
                 "peso_inicial_kg": 72.5,
                 "telefono": "3109876543",
                 "correo": "maria@email.com",
+                "numero_documento": "1020304050",
                 "objetivos": "Bajar de peso y mejorar condición cardiovascular"
             }
         }
@@ -75,6 +77,7 @@ class PatientUpdate(BaseModel):
     talla_metros: Optional[float] = Field(None, ge=0.5, le=2.5)
     telefono: Optional[str] = None
     correo: Optional[str] = None
+    numero_documento: Optional[str] = Field(None, min_length=4, max_length=20)
     observaciones: Optional[str] = None
     objetivos: Optional[str] = None
     condicion_medica: Optional[str] = None
@@ -99,6 +102,7 @@ class PatientResponse(BaseModel):
     peso_inicial_kg: float
     telefono: Optional[str]
     correo: Optional[str]
+    numero_documento: Optional[str] = None
     observaciones: Optional[str]
     objetivos: Optional[str]
     condicion_medica: Optional[str]

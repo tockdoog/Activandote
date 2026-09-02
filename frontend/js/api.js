@@ -103,8 +103,13 @@ class ApiClient {
       return await this._procesarRespuesta(respuesta);
 
     } catch (error) {
-      console.error('Error de red:', error);
-      mostrarToast('Error de conexión con el servidor', 'error');
+      // Un error de red real (sin respuesta del servidor) es distinto a un
+      // error HTTP ya procesado (4xx/5xx) — este último ya trae su propio
+      // mensaje descriptivo y no debe mostrar el toast genérico de conexión.
+      if (error instanceof TypeError) {
+        console.error('Error de red:', error);
+        mostrarToast('Error de conexión con el servidor', 'error');
+      }
       throw error;
     }
   }
@@ -122,7 +127,7 @@ class ApiClient {
 
     if (respuesta.ok) return datos;
 
-    const mensajeError = datos?.detail || datos?.detalle || this._mensajeError(respuesta.status);
+    const mensajeError = this._extraerMensajeError(datos, respuesta.status);
     const error = new Error(mensajeError);
     error.status = respuesta.status;
     error.datos  = datos;
@@ -130,34 +135,19 @@ class ApiClient {
   }
 
   /**
-   * Intenta renovar el access token usando el refresh token almacenado.
-   * Usa un flag _renovandoToken para evitar llamadas recursivas infinitas.
+   * Construye un mensaje de error legible a partir de la respuesta del backend.
+   * Si es un error de validación (422) con detalle por campo (formato
+   * {detalle, errores: [{campo, mensaje}, ...]} generado por el manejador
+   * global de FastAPI), muestra el campo y el motivo exactos en vez del
+   * mensaje genérico "Error de validación".
    */
-  async _renovarToken() {
-    const refreshToken = localStorage.getItem(this._refreshKey);
-    if (!refreshToken) return false;
-
-    this._renovandoToken = true;
-
-    try {
-      const respuesta = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken })
-      });
-
-      if (respuesta.ok) {
-        const datos = await respuesta.json();
-        this.guardarSesion(datos);
-        return true;
-      }
-
-      return false;
-    } catch {
-      return false;
-    } finally {
-      this._renovandoToken = false;
+  _extraerMensajeError(datos, status) {
+    if (datos?.errores && Array.isArray(datos.errores) && datos.errores.length > 0) {
+      return datos.errores
+        .map(err => `${(err.campo || '').replace('body → ', '')}: ${err.mensaje}`)
+        .join(' | ');
     }
+    return datos?.detail || datos?.detalle || this._mensajeError(status);
   }
 
   /** Retorna un mensaje de error legible según el código HTTP recibido */
@@ -235,6 +225,60 @@ class ApiClient {
   compararEvaluaciones(patientId, id1, id2) {
     return this.get(`/evaluations/patients/${patientId}/comparar?eval_id_1=${id1}&eval_id_2=${id2}`);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ENDPOINTS DE HABEAS DATA / CONSENTIMIENTO INFORMADO
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Obtiene el documento de consentimiento actualmente vigente */
+  obtenerDocumentoVigente() { return this.get('/consent/documento-vigente'); }
+
+  /** Obtiene el estado de consentimiento de un paciente (habilita/bloquea evaluaciones) */
+  obtenerEstadoConsentimiento(patientId) { return this.get(`/consent/patients/${patientId}/estado`); }
+
+  /** Registra la evidencia completa del consentimiento de un paciente */
+  registrarConsentimiento(patientId, datos) { return this.post(`/consent/patients/${patientId}`, datos); }
+
+  /** Lista el historial inmutable de consentimientos de un paciente */
+  obtenerHistorialConsentimientos(patientId) { return this.get(`/consent/patients/${patientId}/historial`); }
+
+  /** Obtiene el detalle completo (con firma) de una evidencia — acceso restringido */
+  obtenerEvidenciaConsentimiento(consentId) { return this.get(`/consent/evidencia/${consentId}`); }
+
+  /**
+   * Descarga el PDF de evidencia legal de un consentimiento ya registrado:
+   * autorizaciones aceptadas, confirmación del profesional, firma, validación
+   * de identidad y hash de integridad. Pensado para responder ante un
+   * reclamo del paciente demostrando que autorizó, firmó y confirmó el proceso.
+   */
+  async exportarEvidenciaConsentimientoPDF(consentId, nombrePaciente) {
+    const token = this.getAccessToken();
+
+    const respuesta = await fetch(
+      `${API_BASE_URL}/consent/evidencia/${consentId}/pdf`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    if (!respuesta.ok) throw new Error('Error al generar el PDF de evidencia');
+
+    // Obtener nombre del archivo desde la cabecera Content-Disposition
+    const disposition = respuesta.headers.get('Content-Disposition') || '';
+    const match       = disposition.match(/filename=([^;]+)/);
+    const nombre      = match ? match[1].trim() : `fitpro_evidencia_habeas_data_${nombrePaciente.replace(/\s+/g, '_')}.pdf`;
+
+    const blob = await respuesta.blob();
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = nombre;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  /** Genera un respaldo local de la base de datos (solo administradores) */
+  generarBackupBaseDatos() { return this.post('/consent/admin/backup', {}); }
 
   // ─────────────────────────────────────────────────────────────────────────
   // EXPORTACIÓN POR PACIENTE (Excel y PDF individual)

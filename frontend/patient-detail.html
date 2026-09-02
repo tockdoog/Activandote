@@ -1,5 +1,7 @@
 <!-- frontend/patient-detail.html -->
-<!-- Vista detallada del paciente: perfil, indicadores, gráficas e historial de evaluaciones -->
+<!-- Vista detallada del paciente: perfil, indicadores, gráficas, historial
+     de evaluaciones e historial de consentimientos (Habeas Data) con
+     descarga de evidencia en PDF. -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -282,6 +284,60 @@
       gap: 5px;
     }
 
+    /* ── Modal historial de consentimientos (Habeas Data) ── */
+    .consentimiento-item {
+      background: var(--gris-panel);
+      border: 1px solid var(--gris-borde);
+      border-left: 3px solid var(--verde-primario);
+      border-radius: var(--radio-md);
+      padding: var(--sp-md);
+      margin-bottom: var(--sp-md);
+    }
+
+    .consentimiento-item:last-child { margin-bottom: 0; }
+
+    .consentimiento-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-sm);
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .consentimiento-item-version {
+      font-family: var(--fuente-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .consentimiento-item-fecha {
+      font-size: 0.78rem;
+      color: #516651;
+    }
+
+    .consentimiento-item-hash {
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      color: #516651;
+      word-break: break-all;
+      margin: 6px 0 10px;
+    }
+
+    .consentimiento-estado-vacio {
+      text-align: center;
+      padding: var(--sp-xl) var(--sp-md);
+      color: #516651;
+    }
+
+    .consentimiento-estado-vacio i {
+      font-size: 2rem;
+      color: var(--gris-300);
+      display: block;
+      margin-bottom: var(--sp-sm);
+    }
+
     @media (max-width: 768px) {
       .perfil-card { flex-direction: column; }
       .perfil-avatar { width: 60px; height: 60px; font-size: 1.5rem; }
@@ -341,6 +397,12 @@
       </div>
 
       <div class="topbar-actions">
+        <!-- Consentimiento informado (Habeas Data) — abre el modal de historial -->
+        <button class="btn btn-secundario btn-sm" id="btn-ver-consentimiento">
+          <i class="bi bi-shield-lock-fill me-1" style="color:#16A34A"></i>
+          <span class="d-none d-md-inline">Consentimiento</span>
+        </button>
+
         <!-- Exportar PDF: análisis completo del paciente -->
         <button class="btn btn-secundario btn-sm" id="btn-exportar-pdf">
           <i class="bi bi-file-earmark-pdf-fill me-1" style="color:#16A34A"></i>
@@ -518,6 +580,43 @@
   onclick="toggleSidebar()"
   style="display:none;position:fixed;inset:0;background:rgba(15,42,26,0.45);backdrop-filter:blur(2px);z-index:999"
 ></div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- MODAL: HISTORIAL DE CONSENTIMIENTOS (HABEAS DATA) -->
+<!-- Lista los consentimientos firmados por el paciente. Cada uno permite -->
+<!-- descargar su PDF de evidencia legal (autorizaciones, firma, -->
+<!-- validación de identidad y hash de integridad). -->
+<!-- ════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-consentimientos">
+  <div class="modal-caja" style="max-width:640px">
+
+    <div class="modal-header">
+      <h3 class="modal-titulo">
+        <i class="bi bi-shield-lock-fill me-2" style="color:var(--verde-primario)"></i>
+        Consentimientos Informados
+      </h3>
+      <button class="modal-cerrar" onclick="cerrarModal('modal-consentimientos')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="modal-body" id="consentimientos-body">
+      <div class="d-flex align-items-center justify-content-center" style="min-height:120px">
+        <div class="spinner"></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secundario" id="btn-nuevo-consentimiento">
+        <i class="bi bi-plus-lg me-1"></i> Registrar nuevo consentimiento
+      </button>
+      <button class="btn btn-secundario" onclick="cerrarModal('modal-consentimientos')">
+        Cerrar
+      </button>
+    </div>
+
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════ -->
 <!-- MODAL: VER DETALLE DE EVALUACIÓN        -->

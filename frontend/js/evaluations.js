@@ -1,6 +1,8 @@
 // frontend/js/evaluations.js
-// Lógica de evaluaciones físicas: formulario, historial, gráficas y cálculos automáticos
-// Usado tanto en evaluations.html (formulario) como en patient-detail.html (historial)
+// Lógica de evaluaciones físicas: formulario, historial, gráficas, cálculos
+// automáticos e historial de consentimientos (Habeas Data) con descarga de
+// evidencia en PDF. Usado tanto en evaluations.html (formulario) como en
+// patient-detail.html (historial).
 
 // -----------------------------------------------
 // Verificación de sesión activa
@@ -23,7 +25,8 @@ const esDetalle = !!document.getElementById('tbody-evaluaciones');
 const graficas = {};
 
 // Paciente actualmente en contexto (formulario o detalle). Se usa para
-// clasificar el Test de Wells y el Test de Dinamómetro según género y edad.
+// clasificar el Test de Wells y el Test de Dinamómetro según género y edad,
+// y para nombrar el archivo descargado del PDF de evidencia de consentimiento.
 let pacienteActual = null;
 
 // -----------------------------------------------
@@ -62,7 +65,8 @@ function inicializarUsuario() {
 
 /**
  * Inicializa el formulario de nueva evaluación.
- * Lee el patient_id de la URL y carga los datos del paciente.
+ * Lee el patient_id de la URL, verifica el consentimiento informado
+ * (Habeas Data) del paciente y carga sus datos.
  */
 async function inicializarFormulario() {
   const params = new URLSearchParams(window.location.search);
@@ -71,6 +75,22 @@ async function inicializarFormulario() {
   if (!patientId) {
     mostrarToast('No se especificó un paciente', 'error');
     setTimeout(() => window.location.href = 'patients.html', 1500);
+    return;
+  }
+
+  // ── PUERTA DE HABEAS DATA ────────────────────────────────────────────
+  // No se permite iniciar el formulario de evaluación sin un consentimiento
+  // informado vigente y válido. El backend también valida esto al guardar,
+  // pero se verifica aquí primero para no hacer perder tiempo al usuario.
+  try {
+    const estadoConsentimiento = await api.obtenerEstadoConsentimiento(patientId);
+    if (!estadoConsentimiento.tiene_consentimiento_valido) {
+      window.location.href = `consent.html?patient_id=${patientId}&return=evaluations`;
+      return;
+    }
+  } catch (error) {
+    mostrarToast('Error al verificar el consentimiento del paciente', 'error');
+    setTimeout(() => window.location.href = `patient-detail.html?id=${patientId}`, 1500);
     return;
   }
 
@@ -203,6 +223,14 @@ async function enviarFormulario(e) {
     }, 900);
 
   } catch (error) {
+    // Si el backend bloqueó por falta de consentimiento (403), redirigir al proceso
+    if (error.status === 403) {
+      mostrarToast('Debe completar el consentimiento informado del paciente', 'error');
+      setTimeout(() => {
+        window.location.href = `consent.html?patient_id=${patientId}&return=evaluations`;
+      }, 1200);
+      return;
+    }
     mostrarToast(error.message || 'Error al guardar la evaluación', 'error');
     document.getElementById('btn-eval-texto').style.display = 'inline';
     document.getElementById('btn-eval-cargando').style.display = 'none';
@@ -430,7 +458,8 @@ async function inicializarDetallePaciente() {
     ]);
 
     // Se guarda en el ámbito del módulo para clasificar Wells y Dinamómetro
-    // dentro del modal de detalle de cada evaluación.
+    // dentro del modal de detalle de cada evaluación, y para nombrar el
+    // archivo del PDF de evidencia de consentimiento.
     pacienteActual = paciente;
 
     renderizarPerfilPaciente(paciente);
@@ -461,6 +490,14 @@ async function inicializarDetallePaciente() {
           btnPdf.innerHTML = textoOriginal;
         }
       };
+    }
+
+    // Configurar botón de consentimiento informado (Habeas Data):
+    // abre el modal con el historial de consentimientos del paciente
+    // en vez de redirigir directo a la pantalla de firma.
+    const btnConsentimiento = document.getElementById('btn-ver-consentimiento');
+    if (btnConsentimiento) {
+      btnConsentimiento.onclick = () => abrirModalConsentimientos(patientId);
     }
 
     // Configurar breadcrumb
@@ -798,6 +835,115 @@ function crearGrafica(canvasId, config) {
   if (!canvas) return;
   if (graficas[canvasId]) graficas[canvasId].destroy();
   graficas[canvasId] = new Chart(canvas, config);
+}
+
+// -----------------------------------------------
+// MODAL: HISTORIAL DE CONSENTIMIENTOS (HABEAS DATA)
+// -----------------------------------------------
+
+/**
+ * Abre el modal de consentimientos del paciente y carga su historial
+ * desde el backend. Cada entrada del historial permite descargar el PDF
+ * de evidencia legal correspondiente.
+ */
+async function abrirModalConsentimientos(patientId) {
+  const body = document.getElementById('consentimientos-body');
+  const btnNuevo = document.getElementById('btn-nuevo-consentimiento');
+
+  // Botón para iniciar un nuevo proceso de consentimiento, siempre visible
+  if (btnNuevo) {
+    btnNuevo.onclick = () => {
+      window.location.href = `consent.html?patient_id=${patientId}&return=patient-detail`;
+    };
+  }
+
+  // Estado de carga mientras se consulta el historial
+  body.innerHTML = `
+    <div class="d-flex align-items-center justify-content-center" style="min-height:120px">
+      <div class="spinner"></div>
+    </div>`;
+
+  abrirModal('modal-consentimientos');
+
+  try {
+    const historial = await api.obtenerHistorialConsentimientos(patientId);
+    renderizarHistorialConsentimientos(historial, patientId);
+  } catch (error) {
+    body.innerHTML = `
+      <div class="alerta alerta-error">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>${error.message || 'No fue posible cargar el historial de consentimientos'}</span>
+      </div>`;
+  }
+}
+
+/** Renderiza la lista de consentimientos dentro del modal */
+function renderizarHistorialConsentimientos(historial, patientId) {
+  const body = document.getElementById('consentimientos-body');
+  if (!body) return;
+
+  if (!historial || historial.length === 0) {
+    body.innerHTML = `
+      <div class="consentimiento-estado-vacio">
+        <i class="bi bi-shield-exclamation"></i>
+        <div style="font-weight:600;color:#111827;margin-bottom:4px">Sin consentimientos registrados</div>
+        <div style="font-size:.85rem">Este paciente aún no ha firmado el consentimiento informado.</div>
+      </div>`;
+    return;
+  }
+
+  // El historial ya viene ordenado del más reciente al más antiguo (backend)
+  body.innerHTML = historial.map(c => {
+    const fecha = new Date(c.created_at).toLocaleString('es-CO', {
+      year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+
+    const identidadBadge = c.identidad_validada
+      ? '<span class="badge badge-activo">✓ Identidad validada</span>'
+      : '<span class="badge badge-alerta">✗ Identidad no coincidía</span>';
+
+    return `
+      <div class="consentimiento-item">
+        <div class="consentimiento-item-header">
+          <span class="consentimiento-item-version">
+            <i class="bi bi-file-earmark-check me-1" style="color:var(--verde-primario)"></i>
+            Versión ${c.version_documento}
+          </span>
+          ${identidadBadge}
+        </div>
+        <div class="consentimiento-item-fecha">
+          <i class="bi bi-calendar2-check me-1"></i>${fecha}
+          ${c.nombre_profesional ? ` · Profesional: ${c.nombre_profesional}` : ''}
+        </div>
+        <div class="consentimiento-item-hash">Hash: ${c.hash_evidencia}</div>
+        <button class="btn btn-secundario btn-sm" onclick="descargarEvidenciaDesdeHistorial(${c.id}, this)">
+          <i class="bi bi-file-earmark-pdf-fill me-1" style="color:#16A34A"></i> Descargar evidencia en PDF
+        </button>
+      </div>`;
+  }).join('');
+}
+
+/**
+ * Descarga el PDF de evidencia de un consentimiento específico del
+ * historial mostrado en el modal. Usa pacienteActual (ya cargado por
+ * inicializarDetallePaciente) para nombrar el archivo descargado.
+ */
+async function descargarEvidenciaDesdeHistorial(consentId, boton) {
+  if (!pacienteActual) return;
+
+  const textoOriginal = boton.innerHTML;
+  boton.disabled = true;
+  boton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generando...';
+
+  try {
+    await api.exportarEvidenciaConsentimientoPDF(consentId, pacienteActual.nombre_completo);
+    mostrarToast('PDF de evidencia generado correctamente', 'exito');
+  } catch (error) {
+    mostrarToast(error.message || 'Error al generar el PDF de evidencia', 'error');
+  } finally {
+    boton.disabled = false;
+    boton.innerHTML = textoOriginal;
+  }
 }
 
 // -----------------------------------------------

@@ -1,0 +1,293 @@
+<!-- frontend/consent.html -->
+<!-- Módulo de Habeas Data, tratamiento de datos sensibles y consentimiento
+     informado. Pantalla obligatoria antes de iniciar evaluaciones de un
+     paciente nuevo o cuando el documento vigente cambió de versión.
+     Paleta visual: verde/blanco, estética médica (coherente con main.css).
+     Incluye: registro de documento, autorizaciones, firma en pantalla,
+     validación de identidad y descarga del PDF de evidencia legal. -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- No indexar por buscadores: pantalla con datos sensibles -->
+  <meta name="robots" content="noindex, nofollow" />
+  <title>FitPro | Consentimiento Informado</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/consent.css" />
+
+  <style>
+    /* Fondo general de la página envolvente (fuera de .consent-shell) */
+    /* Verde/blanco tipo salud, coherente con el resto de la aplicación */
+    body.pagina-consentimiento {
+      background: var(--gris-fondo);
+      min-height: 100vh;
+    }
+
+    .consent-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--sp-md) var(--sp-xl);
+      color: var(--texto-principal);
+    }
+
+    .consent-topbar a {
+      color: var(--texto-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .consent-topbar a:hover { color: var(--verde-primario); }
+
+    .consent-topbar-paciente {
+      font-size: 0.85rem;
+      color: var(--texto-muted);
+      text-align: right;
+    }
+
+    .consent-topbar-paciente strong { color: var(--texto-principal); }
+
+    .consent-contenedor-externo {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 var(--sp-lg) var(--sp-2xl);
+    }
+  </style>
+</head>
+<body class="pagina-consentimiento">
+
+  <!-- Barra superior mínima: contexto del paciente y salida -->
+  <header class="consent-topbar">
+    <a href="#" id="link-volver">
+      <i class="bi bi-arrow-left"></i> Volver
+    </a>
+    <div class="consent-topbar-paciente">
+      Paciente: <strong id="topbar-nombre-paciente">Cargando...</strong>
+    </div>
+  </header>
+
+  <div class="consent-contenedor-externo">
+    <div class="consent-shell">
+
+      <!-- ENCABEZADO -->
+      <div class="consent-header">
+        <div class="consent-badge">
+          <i class="bi bi-shield-lock-fill"></i> Habeas Data
+        </div>
+        <div class="consent-titulo">Tratamiento de Datos y <span>Consentimiento</span></div>
+        <div class="consent-subtitulo">
+          Este proceso es obligatorio antes de iniciar las evaluaciones del paciente
+        </div>
+      </div>
+
+      <!-- INDICADOR DE PASOS -->
+      <div class="consent-pasos" id="indicador-pasos">
+        <div class="consent-paso" data-paso="0"><span class="consent-paso-num">0</span> Documento</div>
+        <div class="consent-paso" data-paso="1"><span class="consent-paso-num">1</span> Autorizaciones</div>
+        <div class="consent-paso" data-paso="2"><span class="consent-paso-num">2</span> Firma</div>
+        <div class="consent-paso" data-paso="3"><span class="consent-paso-num">3</span> Confirmación</div>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <!-- PASO 0: NÚMERO DE DOCUMENTO (solo si falta) -->
+      <!-- ═══════════════════════════════════ -->
+      <div class="consent-panel" id="panel-paso-0" style="display:none">
+        <p class="consent-texto-breve">
+          Antes de continuar, el profesional debe registrar el <strong>número de documento
+          de identidad completo</strong> del paciente. Este dato se usa únicamente para
+          validar su identidad mediante los últimos 4 dígitos durante la firma.
+        </p>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--texto-muted)">Número de documento del paciente</label>
+          <input type="text" id="input-numero-documento" class="form-control" placeholder="Ej: 1020304050" maxlength="20" />
+        </div>
+        <div class="consent-acciones">
+          <span></span>
+          <button class="consent-btn-primario" onclick="guardarNumeroDocumento()" id="btn-guardar-doc">
+            Guardar y continuar <i class="bi bi-arrow-right ms-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <!-- PASO 1: EXPLICACIÓN + CHECKBOXES -->
+      <!-- ═══════════════════════════════════ -->
+      <div class="consent-panel" id="panel-paso-1" style="display:none">
+        <p class="consent-texto-breve">
+          <strong>¿Qué datos se recopilan?</strong> Sus datos de identificación y los
+          resultados de sus evaluaciones físicas y de salud (peso, composición corporal,
+          signos vitales y condición física).<br/><br/>
+          <strong>¿Para qué se usan?</strong> Únicamente para dar seguimiento a su
+          progreso y generar sus reportes personales. No se comparten con terceros.<br/><br/>
+          <strong>Datos sensibles de salud:</strong> algunos de estos datos están
+          protegidos por la ley colombiana y requieren su autorización expresa,
+          que se solicita a continuación.
+        </p>
+
+        <button class="consent-btn-info" onclick="abrirModalInformacion()">
+          <i class="bi bi-file-earmark-text me-1"></i> Ver información completa
+        </button>
+
+        <label class="consent-check-item" id="chk-item-1">
+          <input type="checkbox" id="chk-datos-personales" onchange="actualizarEstadoChecks()" />
+          <span class="consent-check-texto">
+            Autorizo el <strong>tratamiento de mis datos personales</strong> (nombre, contacto,
+            datos demográficos) para los fines descritos.
+          </span>
+        </label>
+
+        <label class="consent-check-item" id="chk-item-2">
+          <input type="checkbox" id="chk-datos-sensibles" onchange="actualizarEstadoChecks()" />
+          <span class="consent-check-texto">
+            Autorizo el <strong>tratamiento de mis datos sensibles de salud</strong>
+            (evaluaciones físicas y de condición física) para el seguimiento de mi proceso.
+          </span>
+        </label>
+
+        <label class="consent-check-item" id="chk-item-3">
+          <input type="checkbox" id="chk-consentimiento-informado" onchange="actualizarEstadoChecks()" />
+          <span class="consent-check-texto">
+            Confirmo que recibí el <strong>consentimiento informado</strong> sobre el
+            propósito y las condiciones de las evaluaciones físicas que se me realizarán.
+          </span>
+        </label>
+
+        <label class="consent-check-item" id="chk-item-4">
+          <input type="checkbox" id="chk-profesional-confirma" onchange="actualizarEstadoChecks()" />
+          <span class="consent-check-texto">
+            <strong>El profesional confirma</strong> que explicó esta información al
+            paciente y resolvió todas sus dudas antes de continuar.
+          </span>
+        </label>
+
+        <div class="consent-acciones">
+          <span></span>
+          <button class="consent-btn-primario" id="btn-continuar-paso1" onclick="irAPaso(2)" disabled>
+            Continuar a la firma <i class="bi bi-arrow-right ms-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <!-- PASO 2: FIRMA + ÚLTIMOS 4 DÍGITOS -->
+      <!-- ═══════════════════════════════════ -->
+      <div class="consent-panel" id="panel-paso-2" style="display:none">
+        <p class="consent-texto-breve">
+          Pida al paciente que <strong>firme en la pantalla</strong> con el mouse o el dedo,
+          y que ingrese los <strong>últimos 4 dígitos</strong> de su documento de identidad
+          para confirmar que es él quien está firmando.
+        </p>
+
+        <label class="form-label" style="color:var(--texto-muted)">Firma del paciente</label>
+        <div class="consent-firma-box">
+          <canvas id="canvas-firma"></canvas>
+          <div class="consent-firma-placeholder" id="firma-placeholder">
+            Firme aquí con el mouse o el dedo
+          </div>
+        </div>
+        <div style="text-align:right;margin:8px 0 var(--sp-lg)">
+          <button class="consent-btn-secundario" onclick="limpiarFirma()">
+            <i class="bi bi-eraser me-1"></i> Limpiar firma
+          </button>
+        </div>
+
+        <label class="form-label" style="color:var(--texto-muted)">Últimos 4 dígitos del documento</label>
+        <input
+          type="text" id="input-ultimos-digitos" class="consent-input-digitos"
+          maxlength="4" inputmode="numeric" placeholder="••••"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+        />
+        <div class="campo-ayuda" id="ayuda-digitos" style="color:var(--texto-muted);margin-top:6px">
+          Debe coincidir con el documento registrado del paciente
+        </div>
+
+        <div class="consent-acciones">
+          <button class="consent-btn-secundario" onclick="irAPaso(1)">
+            <i class="bi bi-arrow-left me-1"></i> Atrás
+          </button>
+          <button class="consent-btn-primario" id="btn-continuar-paso2" onclick="irAPaso(3)" disabled>
+            Continuar a la confirmación <i class="bi bi-arrow-right ms-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <!-- PASO 3: CONFIRMACIÓN FINAL -->
+      <!-- ═══════════════════════════════════ -->
+      <div class="consent-panel" id="panel-paso-3" style="display:none">
+        <label class="consent-check-item" id="chk-item-final">
+          <input type="checkbox" id="chk-confirmacion-final" onchange="actualizarEstadoChecks()" />
+          <span class="consent-check-texto">
+            <strong>He leído, comprendido y acepto</strong> la información y autorizaciones
+            anteriores.
+          </span>
+        </label>
+
+        <div class="consent-acciones">
+          <button class="consent-btn-secundario" onclick="irAPaso(2)">
+            <i class="bi bi-arrow-left me-1"></i> Atrás
+          </button>
+          <button class="consent-btn-primario" id="btn-confirmar-final" onclick="confirmarConsentimiento()" disabled>
+            <span id="btn-confirmar-texto">
+              <i class="bi bi-check-circle me-1"></i> Confirmar y generar evidencia
+            </span>
+            <span id="btn-confirmar-cargando" style="display:none">
+              <span class="spinner-border spinner-border-sm me-2"></span> Procesando...
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════ -->
+      <!-- PASO 4: ÉXITO + DESCARGA DE EVIDENCIA EN PDF -->
+      <!-- El PDF sirve como prueba ante un eventual reclamo del paciente: -->
+      <!-- muestra qué autorizó, la confirmación del profesional, la firma -->
+      <!-- capturada, la validación de identidad y el hash de integridad. -->
+      <!-- ═══════════════════════════════════ -->
+      <div class="consent-panel text-center" id="panel-paso-4" style="display:none">
+        <div class="consent-exito-icono"><i class="bi bi-check-lg"></i></div>
+        <div class="consent-titulo" style="font-size:1.4rem">Evidencia generada</div>
+        <p class="consent-texto-breve" style="text-align:center">
+          El consentimiento del paciente quedó registrado correctamente. Conserve el PDF
+          de evidencia: si el paciente reclama más adelante, este documento demuestra
+          que autorizó, firmó y confirmó el proceso.
+        </p>
+        <div class="consent-hash-box" id="hash-evidencia-final"></div>
+        <div class="consent-acciones" style="justify-content:center;flex-wrap:wrap">
+          <button class="consent-btn-secundario" id="btn-descargar-evidencia">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i> Descargar evidencia en PDF
+          </button>
+          <button class="consent-btn-primario" id="btn-ir-evaluacion">
+            Ir a la evaluación <i class="bi bi-arrow-right ms-1"></i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- MODAL: INFORMACIÓN COMPLETA DEL DOCUMENTO -->
+  <!-- ═══════════════════════════════════ -->
+  <div class="consent-modal-overlay" id="modal-informacion">
+    <div class="consent-modal-caja">
+      <h3><i class="bi bi-file-earmark-text me-2"></i> Documento completo</h3>
+      <pre id="contenido-documento-completo">Cargando...</pre>
+      <div class="consent-acciones" style="justify-content:flex-end;margin-top:var(--sp-md)">
+        <button class="consent-btn-secundario" onclick="cerrarModalInformacion()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/license.js"></script>
+  <script src="js/consent.js"></script>
+</body>
+</html>

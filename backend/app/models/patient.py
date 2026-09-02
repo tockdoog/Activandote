@@ -1,7 +1,6 @@
 # backend/app/models/patient.py
 # Modelo de base de datos para pacientes/clientes del entrenador
 
-
 from sqlalchemy import Column, Integer, String, Float, Text, Boolean, DateTime, Date, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -37,6 +36,12 @@ class Patient(Base):
 
     telefono = Column(String(20), nullable=True)
     correo = Column(String(150), nullable=True)
+
+    # Número de documento de identidad — requerido por el módulo de Habeas Data
+    # para validar la identidad del paciente mediante sus últimos 4 dígitos.
+    # Nullable porque pacientes ya registrados antes de este módulo no lo tienen
+    # aún; se completa desde la pantalla de consentimiento antes de firmar.
+    numero_documento = Column(String(20), nullable=True)
 
     talla_metros = Column(Float, nullable=False)
     peso_inicial_kg = Column(Float, nullable=False)

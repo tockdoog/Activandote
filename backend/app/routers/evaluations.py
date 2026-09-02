@@ -15,6 +15,7 @@ from app.models.patient import Patient
 from app.models.evaluation import Evaluation
 from app.schemas import EvaluationCreate, EvaluationResponse
 from app.utils.security import get_current_active_user
+from app.utils.consent import tiene_consentimiento_valido
 from app.utils.calculations import (
     calcular_imc, calcular_indice_ruffier,
     generar_alertas, comparar_evaluaciones,
@@ -40,9 +41,21 @@ async def crear_evaluacion(
     """
     Registra una nueva evaluación física para un paciente.
     Calcula automáticamente IMC, Índice Ruffier y genera alertas.
+    Requiere que el paciente tenga un consentimiento informado vigente y
+    válido (módulo de Habeas Data); de lo contrario se bloquea con 403.
     """
     # Verificar que el paciente pertenece al entrenador
     paciente = _verificar_paciente(patient_id, current_user.id, db)
+
+    # ── PUERTA DE HABEAS DATA ──────────────────────────────────────────
+    # No se permite iniciar evaluaciones sin un consentimiento informado
+    # completo y correspondiente a la versión vigente del documento.
+    if not tiene_consentimiento_valido(db, patient_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El paciente debe completar el proceso de consentimiento informado "
+                   "(Habeas Data) antes de iniciar evaluaciones."
+        )
 
     # Calcular número de evaluación secuencial
     num_evaluacion = db.query(Evaluation).filter(
