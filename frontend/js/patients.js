@@ -1,5 +1,6 @@
 // frontend/js/patients.js
-// Lógica CRUD completa de pacientes: listado, búsqueda, creación, edición y eliminación
+// Lógica CRUD completa de pacientes: listado, búsqueda, creación, edición,
+// eliminación y exportación del consolidado de pacientes (Excel/PDF)
 
 // -----------------------------------------------
 // Verificación de sesión activa
@@ -526,6 +527,115 @@ function limpiarFormularioPaciente() {
     .forEach(e => e.style.display = 'none');
   document.querySelectorAll('#form-paciente .form-control')
     .forEach(c => c.classList.remove('invalido'));
+}
+
+// -----------------------------------------------
+// EXPORTACIÓN DEL CONSOLIDADO DE PACIENTES (Excel / PDF)
+// Reutiliza el mismo reporte global que usa el dashboard
+// (/dashboard/reporte-global), que ya incluye datos personales,
+// contacto, talla/peso, evaluaciones, estado y Habeas Data.
+// -----------------------------------------------
+
+// Datos del último consolidado cargado, usados por los botones de descarga
+let _datosExportPacientes = null;
+
+/**
+ * Abre el modal de exportación y carga la previsualización del consolidado
+ * de pacientes desde el backend.
+ */
+async function abrirModalExportarPacientes() {
+  abrirModal('modal-exportar-pacientes');
+  _mostrarEstadoExportPacientes('cargando');
+
+  try {
+    const datos = await api.obtenerReporteGlobal();
+    _datosExportPacientes = datos;
+    _renderizarPreviaExportPacientes(datos);
+    _mostrarEstadoExportPacientes('listo');
+  } catch (error) {
+    console.error('Error cargando el consolidado de pacientes:', error);
+    _mostrarEstadoExportPacientes('error');
+  }
+}
+
+/**
+ * Alterna entre los estados visuales del modal de exportación.
+ * @param {'cargando'|'listo'|'error'} estadoVisual
+ */
+function _mostrarEstadoExportPacientes(estadoVisual) {
+  const spinner   = document.getElementById('export-pac-spinner');
+  const contenido = document.getElementById('export-pac-contenido');
+  const errorDiv  = document.getElementById('export-pac-error');
+  const acciones  = document.getElementById('export-pac-acciones');
+
+  spinner.style.display   = estadoVisual === 'cargando' ? 'flex'  : 'none';
+  contenido.style.display = estadoVisual === 'listo'    ? 'block' : 'none';
+  errorDiv.style.display  = estadoVisual === 'error'    ? 'block' : 'none';
+  acciones.style.display  = estadoVisual === 'listo'    ? 'flex'  : 'none';
+}
+
+/** Renderiza las tarjetas resumen (KPI) del consolidado dentro del modal */
+function _renderizarPreviaExportPacientes(datos) {
+  const r = datos.resumen;
+  const contenedor = document.getElementById('export-pac-kpis');
+
+  const okHabeas         = r.pacientes_habeas_data_ok ?? 0;
+  const totalPac         = r.total_pacientes ?? 0;
+  const faltantesHabeas  = totalPac - okHabeas;
+
+  contenedor.innerHTML = `
+    ${_tarjetaExportPac(totalPac, 'Total pacientes')}
+    ${_tarjetaExportPac(r.pacientes_activos, 'Activos')}
+    ${_tarjetaExportPac(r.total_evaluaciones, 'Evaluaciones')}
+    ${_tarjetaExportPac(okHabeas, 'Habeas Data OK')}
+    ${_tarjetaExportPac(faltantesHabeas, 'Sin Habeas Data', faltantesHabeas > 0)}
+    ${_tarjetaExportPac(r.pacientes_con_alerta, 'Con alerta', r.pacientes_con_alerta > 0)}
+  `;
+}
+
+/** Genera el HTML de una tarjeta individual del resumen de exportación */
+function _tarjetaExportPac(valor, etiqueta, esAlerta = false) {
+  return `
+    <div class="export-pac-kpi-card ${esAlerta ? 'alerta' : ''}">
+      <div class="export-pac-kpi-valor">${valor ?? 0}</div>
+      <div class="export-pac-kpi-label">${etiqueta}</div>
+    </div>`;
+}
+
+/** Descarga el consolidado de pacientes en formato Excel */
+async function descargarExcelConsolidado() {
+  const btn = document.getElementById('btn-export-pac-excel');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> Generando...';
+
+  try {
+    await api.exportarReporteGlobalExcel();
+    mostrarToast('Consolidado Excel descargado correctamente', 'exito');
+    cerrarModal('modal-exportar-pacientes');
+  } catch (error) {
+    mostrarToast('Error al generar el archivo Excel', 'error');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '<i class="bi bi-file-earmark-excel-fill me-1"></i> Descargar Excel';
+  }
+}
+
+/** Descarga el consolidado de pacientes en formato PDF */
+async function descargarPDFConsolidado() {
+  const btn = document.getElementById('btn-export-pac-pdf');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> Generando...';
+
+  try {
+    await api.exportarReporteGlobalPDF();
+    mostrarToast('Consolidado PDF descargado correctamente', 'exito');
+    cerrarModal('modal-exportar-pacientes');
+  } catch (error) {
+    mostrarToast('Error al generar el archivo PDF', 'error');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '<i class="bi bi-file-earmark-pdf-fill me-1"></i> Descargar PDF';
+  }
 }
 
 // -----------------------------------------------

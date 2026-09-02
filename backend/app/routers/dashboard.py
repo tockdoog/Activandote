@@ -36,6 +36,9 @@ from app.models.patient import Patient
 from app.models.evaluation import Evaluation
 from app.schemas import DashboardStats
 from app.utils.security import get_current_active_user
+# Función que determina si un paciente tiene un consentimiento (Habeas Data)
+# vigente y válido — se reutiliza la misma lógica que usa el módulo de consentimiento
+from app.utils.consent import tiene_consentimiento_valido
 
 # -----------------------------------------------
 # Configuración del router del dashboard
@@ -44,20 +47,26 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------
-# Paleta de colores corporativa FitPro
-# Para uso en reportes Excel y PDF
+# Paleta de colores corporativa FitPro — Verde y blanco, estética de salud
+# (misma paleta que frontend/css/main.css: --verde-primario, --verde-oscuro, etc.)
+# Para uso en reportes Excel y PDF.
+# El rojo se reserva EXCLUSIVAMENTE para indicadores de alerta/pendiente,
+# igual que --rojo-alerta en main.css — nunca como color de marca.
 # -----------------------------------------------
-COLOR_ROJO_PRIMARIO  = "CC0000"   # Rojo oscuro — encabezados principales
-COLOR_ROJO_MEDIO     = "E53935"   # Rojo medio — filas alternas
-COLOR_ROJO_SUAVE     = "FFEBEE"   # Rojo muy suave — filas de datos pares
-COLOR_NEGRO          = "1A1A1A"   # Negro suave — texto principal
-COLOR_GRIS_OSCURO    = "424242"   # Gris oscuro — subtítulos
-COLOR_GRIS_MEDIO     = "757575"   # Gris medio — texto secundario
-COLOR_GRIS_CLARO     = "F5F5F5"   # Gris claro — filas alternas
+COLOR_VERDE_PRIMARIO = "16A34A"   # Verde primario — encabezados y acentos de marca
+COLOR_VERDE_OSCURO   = "15803D"   # Verde oscuro — encabezados de sección
+COLOR_VERDE_SUAVE_BG = "DCFCE7"   # Verde muy suave — fondos de tarjetas KPI
+COLOR_VERDE_BORDE    = "86EFAC"   # Verde medio — bordes decorativos
+COLOR_GRIS_OSCURO    = "374E37"   # Gris verdoso oscuro — subtítulos
+COLOR_GRIS_MEDIO     = "516651"   # Gris verdoso medio — texto secundario
+COLOR_GRIS_CLARO     = "F4F8F4"   # Gris muy claro — filas alternas
 COLOR_BLANCO         = "FFFFFF"   # Blanco puro — celdas de datos
-COLOR_ALERTA_BG      = "FFCDD2"   # Rojo muy claro — resaltar alertas
-COLOR_EXCELENTE      = "E8F5E9"   # Verde muy claro — condición excelente
+COLOR_ALERTA_ROJO    = "EF4444"   # Rojo — SOLO para indicadores de alerta o pendiente
+COLOR_ALERTA_BG      = "FEE2E2"   # Rojo muy claro — resaltar filas con alerta
+COLOR_ALERTA_BORDE   = "FCA5A5"   # Rojo medio — bordes de celdas de alerta
+COLOR_EXCELENTE      = "DCFCE7"   # Verde muy claro — condición excelente / cumplimiento
 COLOR_REGULAR        = "FFF3E0"   # Naranja muy claro — condición regular
+COLOR_VERDE_TEXTO    = "15803D"   # Verde texto — indicador de "OK" (Habeas Data aceptado)
 
 
 # =============================================================
@@ -250,7 +259,8 @@ async def obtener_datos_reporte_global(
     """
     Retorna el conjunto completo de datos para el reporte global:
     - Resumen estadístico del entrenador
-    - Lista de pacientes con su última evaluación y métricas clave
+    - Lista de pacientes con contacto, talla/peso, última evaluación,
+      estado y estado de aceptación de Habeas Data
     - Evolución mensual de los últimos 12 meses
     - Top 5 pacientes más evaluados
     - Listado de alertas activas
@@ -331,6 +341,10 @@ async def obtener_datos_reporte_global(
             "edad":             paciente.edad,
             "genero":           paciente.genero.value if paciente.genero else "—",
             "estado":           paciente.estado.value if paciente.estado else "—",
+            # --- Contacto (requerido en el consolidado) ---
+            "telefono":         paciente.telefono,
+            "correo":           paciente.correo,
+            # --- Datos físicos iniciales ---
             "talla_metros":     paciente.talla_metros,
             "peso_inicial_kg":  paciente.peso_inicial_kg,
             "fecha_ingreso":    str(paciente.fecha_ingreso) if paciente.fecha_ingreso else "—",
@@ -344,9 +358,14 @@ async def obtener_datos_reporte_global(
             "detalle_alerta":    ultima_eval.detalle_alerta     if ultima_eval else None,
             "total_evaluaciones": db.query(func.count(Evaluation.id)).filter(
                 Evaluation.patient_id == paciente.id
-            ).scalar()
+            ).scalar(),
+            # --- Estado de Habeas Data (requerido en el consolidado) ---
+            "habeas_data_aceptado": tiene_consentimiento_valido(db, paciente.id)
         }
         pacientes_lista.append(entrada)
+
+    # Conteo de pacientes con Habeas Data vigente, para el resumen y las KPI
+    pacientes_habeas_data_ok = sum(1 for p in pacientes_lista if p["habeas_data_aceptado"])
 
     # ─── Evolución mensual ─────────────────────────────────────────────────
     evoluciones_raw = db.query(
@@ -422,6 +441,7 @@ async def obtener_datos_reporte_global(
             "promedio_imc":   round(float(promedio_imc), 2)   if promedio_imc   else None,
             "promedio_grasa": round(float(promedio_grasa), 2) if promedio_grasa else None,
             "promedio_peso":  round(float(promedio_peso), 2)  if promedio_peso  else None,
+            "pacientes_habeas_data_ok": pacientes_habeas_data_ok,
         },
         "pacientes":     pacientes_lista,
         "evolucion":     evolucion_lista,
@@ -444,7 +464,8 @@ async def exportar_reporte_global_excel(
     Genera y descarga el reporte global en formato Excel (.xlsx).
     El archivo contiene 4 hojas:
       1. Resumen — estadísticas clave con diseño de dashboard
-      2. Pacientes — tabla completa con última evaluación
+      2. Pacientes — tabla completa: datos, contacto, talla/peso,
+         última evaluación, estado y Habeas Data
       3. Evolución — evaluaciones por mes (últimos 12 meses)
       4. Alertas — listado de pacientes con alertas activas
     """
@@ -464,36 +485,36 @@ async def exportar_reporte_global_excel(
         bottom=Side(style="thin", color="E0E0E0")
     )
     borde_medio = Border(
-        left=Side(style="medium",   color=COLOR_ROJO_PRIMARIO),
-        right=Side(style="medium",  color=COLOR_ROJO_PRIMARIO),
-        top=Side(style="medium",    color=COLOR_ROJO_PRIMARIO),
-        bottom=Side(style="medium", color=COLOR_ROJO_PRIMARIO)
+        left=Side(style="medium",   color=COLOR_VERDE_PRIMARIO),
+        right=Side(style="medium",  color=COLOR_VERDE_PRIMARIO),
+        top=Side(style="medium",    color=COLOR_VERDE_PRIMARIO),
+        bottom=Side(style="medium", color=COLOR_VERDE_PRIMARIO)
     )
 
     def estilo_encabezado_principal(celda, texto):
-        """Aplica estilo de título principal rojo/blanco/negrita"""
+        """Aplica estilo de título principal verde/blanco/negrita"""
         celda.value     = texto
         celda.font      = Font(name="Calibri", bold=True, size=18,
                                color=COLOR_BLANCO, italic=False)
-        celda.fill      = PatternFill("solid", fgColor=COLOR_ROJO_PRIMARIO)
+        celda.fill      = PatternFill("solid", fgColor=COLOR_VERDE_PRIMARIO)
         celda.alignment = Alignment(horizontal="left", vertical="center",
                                     indent=2)
 
     def estilo_encabezado_seccion(celda, texto):
-        """Encabezado de sección: fondo negro, texto blanco"""
+        """Encabezado de sección: fondo verde oscuro, texto blanco"""
         celda.value     = texto
         celda.font      = Font(name="Calibri", bold=True, size=11,
                                color=COLOR_BLANCO)
-        celda.fill      = PatternFill("solid", fgColor=COLOR_NEGRO)
+        celda.fill      = PatternFill("solid", fgColor=COLOR_VERDE_OSCURO)
         celda.alignment = Alignment(horizontal="left", vertical="center",
                                     indent=1)
 
     def estilo_columna(celda, texto):
-        """Encabezado de columna: fondo rojo, texto blanco, negrita"""
+        """Encabezado de columna: fondo verde, texto blanco, negrita"""
         celda.value     = texto
         celda.font      = Font(name="Calibri", bold=True, size=10,
                                color=COLOR_BLANCO)
-        celda.fill      = PatternFill("solid", fgColor=COLOR_ROJO_PRIMARIO)
+        celda.fill      = PatternFill("solid", fgColor=COLOR_VERDE_PRIMARIO)
         celda.alignment = Alignment(horizontal="center", vertical="center",
                                     wrap_text=True)
         celda.border    = borde_fino
@@ -501,7 +522,7 @@ async def exportar_reporte_global_excel(
     def estilo_dato(celda, valor, par=True, alinear="center"):
         """Celda de dato: fondo alterno blanco/gris muy claro"""
         celda.value     = valor
-        celda.font      = Font(name="Calibri", size=10, color=COLOR_NEGRO)
+        celda.font      = Font(name="Calibri", size=10, color="1F3A1F")
         fondo = COLOR_BLANCO if par else COLOR_GRIS_CLARO
         celda.fill      = PatternFill("solid", fgColor=fondo)
         celda.alignment = Alignment(horizontal=alinear, vertical="center")
@@ -513,18 +534,18 @@ async def exportar_reporte_global_excel(
         if subtitulo:
             celda.font      = Font(name="Calibri", size=9,
                                    color=COLOR_GRIS_OSCURO, italic=True)
-            celda.fill      = PatternFill("solid", fgColor="FFF0F0")
+            celda.fill      = PatternFill("solid", fgColor=COLOR_VERDE_SUAVE_BG)
             celda.alignment = Alignment(horizontal="center", vertical="center")
         else:
             celda.font      = Font(name="Calibri", bold=True, size=20,
-                                   color=COLOR_ROJO_PRIMARIO)
-            celda.fill      = PatternFill("solid", fgColor="FFF0F0")
+                                   color=COLOR_VERDE_PRIMARIO)
+            celda.fill      = PatternFill("solid", fgColor=COLOR_VERDE_SUAVE_BG)
             celda.alignment = Alignment(horizontal="center", vertical="center")
         celda.border = Border(
-            left=Side(style="thin",   color="FFCDD2"),
-            right=Side(style="thin",  color="FFCDD2"),
-            top=Side(style="thin",    color="FFCDD2"),
-            bottom=Side(style="thin", color="FFCDD2")
+            left=Side(style="thin",   color=COLOR_VERDE_BORDE),
+            right=Side(style="thin",  color=COLOR_VERDE_BORDE),
+            top=Side(style="thin",    color=COLOR_VERDE_BORDE),
+            bottom=Side(style="thin", color=COLOR_VERDE_BORDE)
         )
 
     # =========================================================
@@ -560,7 +581,7 @@ async def exportar_reporte_global_excel(
     # Separador visual
     ws1.row_dimensions[4].height = 8
     for col in "BCDEFG":
-        ws1[f"{col}4"].fill = PatternFill("solid", fgColor=COLOR_ROJO_PRIMARIO)
+        ws1[f"{col}4"].fill = PatternFill("solid", fgColor=COLOR_VERDE_PRIMARIO)
 
     # Etiqueta de sección KPI
     ws1.row_dimensions[6].height = 22
@@ -590,7 +611,7 @@ async def exportar_reporte_global_excel(
     # Separador visual
     ws1.row_dimensions[9].height = 6
     for col in "BCDEFG":
-        ws1[f"{col}9"].fill = PatternFill("solid", fgColor="FFCDD2")
+        ws1[f"{col}9"].fill = PatternFill("solid", fgColor=COLOR_VERDE_BORDE)
 
     # Sección Top 5 Pacientes
     ws1.row_dimensions[11].height = 22
@@ -614,8 +635,33 @@ async def exportar_reporte_global_excel(
         ws1.merge_cells(f"F{fila}:G{fila}")
         estilo_dato(ws1[f"F{fila}"], pac["total"], par)
 
+    # Sección Cumplimiento Habeas Data — resumen rápido antes de la evolución mensual
+    fila_cump = 12 + len(datos["top_pacientes"]) + 3
+    ws1.row_dimensions[fila_cump].height = 22
+    ws1.merge_cells(f"B{fila_cump}:G{fila_cump}")
+    estilo_encabezado_seccion(ws1[f"B{fila_cump}"], "  CUMPLIMIENTO HABEAS DATA")
+
+    fila_cump += 1
+    ws1.row_dimensions[fila_cump].height = 28
+    ws1.merge_cells(f"B{fila_cump}:G{fila_cump}")
+    ok_habeas   = resumen.get("pacientes_habeas_data_ok", 0)
+    total_pac_r = resumen.get("total_pacientes", 0)
+    completo    = total_pac_r > 0 and ok_habeas == total_pac_r
+    ws1[f"B{fila_cump}"].value = (
+        f"{ok_habeas} de {total_pac_r} pacientes con consentimiento de "
+        f"Habeas Data vigente"
+    )
+    ws1[f"B{fila_cump}"].font = Font(
+        name="Calibri", size=11, bold=True,
+        color=COLOR_VERDE_TEXTO if completo else COLOR_ALERTA_ROJO
+    )
+    ws1[f"B{fila_cump}"].fill = PatternFill(
+        "solid", fgColor=COLOR_EXCELENTE if completo else COLOR_ALERTA_BG
+    )
+    ws1[f"B{fila_cump}"].alignment = Alignment(horizontal="left", vertical="center", indent=1)
+
     # Sección Evolución mensual
-    fila_evol = 12 + len(datos["top_pacientes"]) + 3
+    fila_evol = fila_cump + 3
     ws1.row_dimensions[fila_evol].height = 22
     ws1.merge_cells(f"B{fila_evol}:G{fila_evol}")
     estilo_encabezado_seccion(ws1[f"B{fila_evol}"],
@@ -650,17 +696,19 @@ async def exportar_reporte_global_excel(
     ws2.sheet_view.showGridLines = False
 
     # Ancho de columnas de la tabla de pacientes
-    anchos_pac = [3, 28, 6, 10, 9, 9, 8, 8, 8, 14, 14, 3]
+    # A(margen) B-Nombre C-Edad D-Género E-Estado F-Teléfono G-Correo
+    # H-Talla I-PesoIni J-ÚEval K-PesoAct L-IMC M-%Grasa N-Evaluaciones O-HabeasData P(margen)
+    anchos_pac = [3, 24, 6, 10, 10, 13, 20, 8, 9, 9, 9, 7, 8, 9, 9, 3]
     for i, ancho in enumerate(anchos_pac, start=1):
         ws2.column_dimensions[get_column_letter(i)].width = ancho
 
     # Encabezado
     ws2.row_dimensions[2].height = 40
-    ws2.merge_cells("B2:L2")
+    ws2.merge_cells("B2:O2")
     estilo_encabezado_principal(ws2["B2"], "🏋️  FITPRO — LISTADO COMPLETO DE PACIENTES")
 
     ws2.row_dimensions[3].height = 18
-    ws2.merge_cells("B3:L3")
+    ws2.merge_cells("B3:O3")
     ws2["B3"].value     = (f"Entrenador: {datos['entrenador']}  |  "
                            f"Fecha: {datos['generado_en']}  |  "
                            f"Total: {len(datos['pacientes'])} pacientes")
@@ -672,16 +720,16 @@ async def exportar_reporte_global_excel(
 
     # Separador
     ws2.row_dimensions[4].height = 6
-    for c in range(2, 13):
-        ws2.cell(4, c).fill = PatternFill("solid", fgColor=COLOR_ROJO_PRIMARIO)
+    for c in range(2, 16):
+        ws2.cell(4, c).fill = PatternFill("solid", fgColor=COLOR_VERDE_PRIMARIO)
 
     # Encabezados de columna
     cabeceras_pac = [
-        "Nombre Completo", "Edad", "Género", "Estado",
+        "Nombre Completo", "Edad", "Género", "Estado", "Teléfono", "Correo",
         "Talla (m)", "Peso Ini. (kg)", "Ú. Eval.",
-        "Peso Act. (kg)", "IMC", "% Grasa", "Evaluaciones"
+        "Peso Act. (kg)", "IMC", "% Grasa", "Evaluaciones", "Habeas Data"
     ]
-    cols_pac = ["B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
+    cols_pac = ["B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"]
 
     ws2.row_dimensions[5].height = 28
     for col, cab in zip(cols_pac, cabeceras_pac):
@@ -701,7 +749,7 @@ async def exportar_reporte_global_excel(
         def dato_pac(celda_ref, valor, alinear="center"):
             c = ws2[celda_ref]
             c.value     = valor if valor is not None else "—"
-            c.font      = Font(name="Calibri", size=9, color=COLOR_NEGRO,
+            c.font      = Font(name="Calibri", size=9, color="1F3A1F",
                                bold=pac.get("tiene_alerta", False))
             c.fill      = PatternFill("solid", fgColor=color_fila)
             c.alignment = Alignment(horizontal=alinear, vertical="center")
@@ -711,20 +759,30 @@ async def exportar_reporte_global_excel(
         dato_pac(f"C{fila}", pac["edad"])
         dato_pac(f"D{fila}", pac["genero"].capitalize())
         dato_pac(f"E{fila}", pac["estado"].capitalize())
-        dato_pac(f"F{fila}", pac["talla_metros"])
-        dato_pac(f"G{fila}", pac["peso_inicial_kg"])
-        dato_pac(f"H{fila}", pac["ultima_evaluacion"] or "Sin eval.")
-        dato_pac(f"I{fila}", pac["peso_actual_kg"])
-        dato_pac(f"J{fila}", pac["imc"])
-        dato_pac(f"K{fila}", pac["porcentaje_grasa"])
-        dato_pac(f"L{fila}", pac["total_evaluaciones"])
+        dato_pac(f"F{fila}", pac.get("telefono") or "—", "left")
+        dato_pac(f"G{fila}", pac.get("correo") or "—", "left")
+        dato_pac(f"H{fila}", pac["talla_metros"])
+        dato_pac(f"I{fila}", pac["peso_inicial_kg"])
+        dato_pac(f"J{fila}", pac["ultima_evaluacion"] or "Sin eval.")
+        dato_pac(f"K{fila}", pac["peso_actual_kg"])
+        dato_pac(f"L{fila}", pac["imc"])
+        dato_pac(f"M{fila}", pac["porcentaje_grasa"])
+        dato_pac(f"N{fila}", pac["total_evaluaciones"])
+        dato_pac(f"O{fila}", "Sí" if pac.get("habeas_data_aceptado") else "No")
+
+        # Colorear la celda de Habeas Data según cumplimiento (verde/rojo)
+        celda_hd = ws2[f"O{fila}"]
+        celda_hd.font = Font(
+            name="Calibri", size=9, bold=True,
+            color=COLOR_VERDE_TEXTO if pac.get("habeas_data_aceptado") else COLOR_ALERTA_ROJO
+        )
 
     # Pie de página de la hoja pacientes
     fila_pie2 = 5 + len(datos["pacientes"]) + 2
-    ws2.merge_cells(f"B{fila_pie2}:L{fila_pie2}")
+    ws2.merge_cells(f"B{fila_pie2}:O{fila_pie2}")
     ws2[f"B{fila_pie2}"].value     = "★ Filas en rojo claro indican pacientes con alertas activas  |  FitPro Sistema Deportivo"
     ws2[f"B{fila_pie2}"].font      = Font(name="Calibri", size=8,
-                                          color=COLOR_ROJO_PRIMARIO, italic=True)
+                                          color=COLOR_GRIS_MEDIO, italic=True)
     ws2[f"B{fila_pie2}"].alignment = Alignment(horizontal="center")
 
     # =========================================================
@@ -751,12 +809,12 @@ async def exportar_reporte_global_excel(
 
     ws3.row_dimensions[4].height = 6
     for c in range(2, 5):
-        ws3.cell(4, c).fill = PatternFill("solid", fgColor=COLOR_ROJO_PRIMARIO)
+        ws3.cell(4, c).fill = PatternFill("solid", fgColor=COLOR_VERDE_PRIMARIO)
 
     ws3.row_dimensions[5].height = 26
     for col, cab in zip(["B", "C"], ["Período", "Evaluaciones"]):
         estilo_columna(ws3[f"{col}5"], cab)
-        ws3[f"D5"].fill = PatternFill("solid", fgColor=COLOR_ROJO_PRIMARIO)
+        ws3[f"D5"].fill = PatternFill("solid", fgColor=COLOR_VERDE_PRIMARIO)
 
     # Calcular máximo para barras proporcionales
     max_eval = max((m["total"] for m in datos["evolucion"]), default=1)
@@ -771,7 +829,7 @@ async def exportar_reporte_global_excel(
         barra_len = int((mes_dato["total"] / max_eval) * 20) if max_eval > 0 else 0
         ws3[f"D{fila}"].value     = "█" * barra_len
         ws3[f"D{fila}"].font      = Font(name="Calibri", size=9,
-                                          color=COLOR_ROJO_PRIMARIO)
+                                          color=COLOR_VERDE_PRIMARIO)
         ws3[f"D{fila}"].fill      = PatternFill("solid",
                                                  fgColor=COLOR_BLANCO if par else COLOR_GRIS_CLARO)
         ws3[f"D{fila}"].alignment = Alignment(horizontal="left",
@@ -804,7 +862,7 @@ async def exportar_reporte_global_excel(
 
     ws4.row_dimensions[4].height = 6
     for c in range(2, 6):
-        ws4.cell(4, c).fill = PatternFill("solid", fgColor=COLOR_ROJO_PRIMARIO)
+        ws4.cell(4, c).fill = PatternFill("solid", fgColor=COLOR_VERDE_PRIMARIO)
 
     ws4.row_dimensions[5].height = 26
     for col, cab in zip(["B", "C", "D", "E"],
@@ -832,13 +890,13 @@ async def exportar_reporte_global_excel(
 
             ws4[f"B{fila}"].value     = alerta["nombre"]
             ws4[f"B{fila}"].font      = Font(name="Calibri", size=10,
-                                              color=COLOR_NEGRO, bold=True)
+                                              color="1F3A1F", bold=True)
             ws4[f"B{fila}"].alignment = Alignment(horizontal="left",
                                                    vertical="center")
 
             ws4[f"C{fila}"].value     = alerta["fecha"]
             ws4[f"C{fila}"].font      = Font(name="Calibri", size=10,
-                                              color=COLOR_NEGRO)
+                                              color="1F3A1F")
             ws4[f"C{fila}"].alignment = Alignment(horizontal="center",
                                                    vertical="center")
 
@@ -881,7 +939,9 @@ async def exportar_reporte_global_pdf(
 ):
     """
     Genera y descarga el reporte global en formato PDF.
-    Diseño deportivo vertical (A4) con paleta rojo/negro/blanco.
+    Diseño deportivo horizontal (A4 apaisado) con paleta rojo/negro/blanco,
+    necesario para que quepan todas las columnas del consolidado: datos,
+    contacto, talla/peso, evaluaciones, estado y Habeas Data.
     Incluye portada, resumen estadístico, tabla de pacientes y alertas.
     """
     # Obtener datos reutilizando la lógica del endpoint JSON
@@ -889,27 +949,34 @@ async def exportar_reporte_global_pdf(
 
     buffer = io.BytesIO()
 
-    # Documento PDF en A4 vertical con márgenes deportivos
+    # Documento PDF en A4 apaisado (landscape) — se necesita el ancho extra
+    # para incluir teléfono, correo y Habeas Data sin amontonar el texto
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=A4,
-        leftMargin=1.8 * cm,
-        rightMargin=1.8 * cm,
-        topMargin=1.5 * cm,
-        bottomMargin=1.5 * cm,
+        pagesize=landscape(A4),
+        leftMargin=1.6 * cm,
+        rightMargin=1.6 * cm,
+        topMargin=1.3 * cm,
+        bottomMargin=1.3 * cm,
         title="FitPro — Reporte Global",
         author=datos["entrenador"]
     )
 
-    # ─── Paleta de colores ReportLab ──────────────────────────────────────
-    ROJO     = colors.HexColor("#CC0000")
-    NEGRO    = colors.HexColor("#1A1A1A")
-    GRIS_OS  = colors.HexColor("#424242")
-    GRIS_CL  = colors.HexColor("#F5F5F5")
-    BLANCO   = colors.white
-    ROJO_CL  = colors.HexColor("#FFEBEE")
-    ROJO_MED = colors.HexColor("#FFCDD2")
-    VERDE_CL = colors.HexColor("#E8F5E9")
+    # ─── Paleta de colores ReportLab — Verde y blanco (estética de salud),
+    # igual que frontend/css/main.css. El rojo se reserva exclusivamente
+    # para indicadores de alerta real (fila con alerta, Habeas Data
+    # pendiente, hoja de alertas), nunca como color de marca. ─────────────
+    VERDE      = colors.HexColor("#16A34A")   # Verde primario — encabezados y acentos de marca
+    VERDE_OSC  = colors.HexColor("#15803D")   # Verde oscuro — encabezados de sección
+    GRIS_OS    = colors.HexColor("#374E37")   # Gris verdoso oscuro — subtítulos
+    GRIS_CL    = colors.HexColor("#F4F8F4")   # Gris muy claro — filas alternas
+    BLANCO     = colors.white
+    VERDE_CL   = colors.HexColor("#DCFCE7")   # Verde muy suave — fondos de tarjetas KPI
+    VERDE_MED  = colors.HexColor("#86EFAC")   # Verde medio — bordes decorativos
+    VERDE_OK   = colors.HexColor("#15803D")   # Indicador semántico "OK" en Habeas Data
+    ALERTA_ROJO = colors.HexColor("#EF4444")  # SOLO para indicadores de alerta o pendiente
+    ALERTA_CL   = colors.HexColor("#FEE2E2")  # Fondo suave de alerta
+    ALERTA_MED  = colors.HexColor("#FCA5A5")  # Borde/realce de alerta
 
     # ─── Estilos de párrafo ───────────────────────────────────────────────
     styles = getSampleStyleSheet()
@@ -940,17 +1007,17 @@ async def exportar_reporte_global_pdf(
     )
     estilo_dato_tabla = ParagraphStyle(
         "dato_tabla",
-        fontSize=8, leading=10, textColor=NEGRO,
+        fontSize=8, leading=10, textColor=colors.HexColor("#1F3A1F"),
         fontName="Helvetica", alignment=TA_LEFT
     )
 
     # ─── Función para encabezado de sección ───────────────────────────────
     def tabla_seccion(titulo_texto):
-        """Tabla de una fila como encabezado de sección con fondo negro"""
+        """Tabla de una fila como encabezado de sección con fondo verde oscuro"""
         t = Table([[Paragraph(titulo_texto, estilo_seccion)]],
                   colWidths=[doc.width])
         t.setStyle(TableStyle([
-            ("BACKGROUND",  (0, 0), (-1, -1), NEGRO),
+            ("BACKGROUND",  (0, 0), (-1, -1), VERDE_OSC),
             ("TOPPADDING",  (0, 0), (-1, -1), 7),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
             ("LEFTPADDING",   (0, 0), (-1, -1), 8),
@@ -970,7 +1037,7 @@ async def exportar_reporte_global_pdf(
     tabla_titulo = Table(titulo_data,
                          colWidths=[ancho_total * 0.28, ancho_total * 0.72])
     tabla_titulo.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), ROJO),
+        ("BACKGROUND",    (0, 0), (-1, -1), VERDE),
         ("TOPPADDING",    (0, 0), (-1, -1), 14),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
         ("LEFTPADDING",   (0, 0), (-1, -1), 10),
@@ -1003,7 +1070,7 @@ async def exportar_reporte_global_pdf(
 
     estilo_kpi_num = ParagraphStyle(
         "kpi_num", fontSize=22, leading=26,
-        textColor=ROJO, fontName="Helvetica-Bold",
+        textColor=VERDE, fontName="Helvetica-Bold",
         alignment=TA_CENTER, spaceAfter=0
     )
     estilo_kpi_lbl = ParagraphStyle(
@@ -1012,7 +1079,11 @@ async def exportar_reporte_global_pdf(
         alignment=TA_CENTER, spaceAfter=0
     )
 
-    # 6 KPI en una fila horizontal
+    # 7 KPI en una fila horizontal (incluye cumplimiento de Habeas Data)
+    total_pac_kpi = resumen["total_pacientes"] or 0
+    ok_habeas_kpi = resumen.get("pacientes_habeas_data_ok", 0)
+    pct_habeas    = round((ok_habeas_kpi / total_pac_kpi) * 100) if total_pac_kpi > 0 else 0
+
     kpi_lista = [
         (str(resumen["total_pacientes"]),       "TOTAL\nPACIENTES"),
         (str(resumen["pacientes_activos"]),      "PACIENTES\nACTIVOS"),
@@ -1020,24 +1091,19 @@ async def exportar_reporte_global_pdf(
         (str(resumen["evaluaciones_mes"]),       "EVAL.\nESTE MES"),
         (str(resumen["pacientes_con_alerta"]),   "CON\nALERTA"),
         (str(resumen["promedio_imc"] or "—"),    "IMC\nPROMEDIO"),
+        (f"{pct_habeas}%",                       "HABEAS DATA\nCUMPLIDO"),
     ]
 
-    kpi_contenido = [[
-        [Paragraph(num, estilo_kpi_num), Paragraph(lbl, estilo_kpi_lbl)]
-        for num, lbl in kpi_lista
-    ]]
-
-    # Aplanar: cada celda es una lista de párrafos
     kpi_row = [[Paragraph(num, estilo_kpi_num), Paragraph(lbl, estilo_kpi_lbl)]
                for num, lbl in kpi_lista]
 
     tabla_kpi = Table([kpi_row],
-                      colWidths=[ancho_total / 6] * 6,
+                      colWidths=[ancho_total / 7] * 7,
                       rowHeights=[1.6 * cm])
     tabla_kpi.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), ROJO_CL),
-        ("BOX",           (0, 0), (-1, -1), 0.5, ROJO_MED),
-        ("INNERGRID",     (0, 0), (-1, -1), 0.5, ROJO_MED),
+        ("BACKGROUND",    (0, 0), (-1, -1), VERDE_CL),
+        ("BOX",           (0, 0), (-1, -1), 0.5, VERDE_MED),
+        ("INNERGRID",     (0, 0), (-1, -1), 0.5, VERDE_MED),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("TOPPADDING",    (0, 0), (-1, -1), 8),
@@ -1047,7 +1113,7 @@ async def exportar_reporte_global_pdf(
     elementos.append(Spacer(1, 0.5 * cm))
 
     # ── TABLA DE PACIENTES ────────────────────────────────────────────────
-    elementos.append(tabla_seccion("  LISTADO DE PACIENTES"))
+    elementos.append(tabla_seccion("  LISTADO DE PACIENTES — DATOS, CONTACTO Y HABEAS DATA"))
     elementos.append(Spacer(1, 0.2 * cm))
 
     estilo_cab_tabla = ParagraphStyle(
@@ -1055,11 +1121,11 @@ async def exportar_reporte_global_pdf(
         fontName="Helvetica-Bold", alignment=TA_CENTER
     )
     estilo_cel_tabla = ParagraphStyle(
-        "cel", fontSize=7.5, leading=9.5, textColor=NEGRO,
+        "cel", fontSize=7.5, leading=9.5, textColor=colors.HexColor("#1F3A1F"),
         fontName="Helvetica", alignment=TA_LEFT
     )
     estilo_cel_c = ParagraphStyle(
-        "celc", fontSize=7.5, leading=9.5, textColor=NEGRO,
+        "celc", fontSize=7.5, leading=9.5, textColor=colors.HexColor("#1F3A1F"),
         fontName="Helvetica", alignment=TA_CENTER
     )
     estilo_alerta_txt = ParagraphStyle(
@@ -1067,11 +1133,20 @@ async def exportar_reporte_global_pdf(
         textColor=colors.HexColor("#B71C1C"),
         fontName="Helvetica-Bold", alignment=TA_LEFT
     )
+    # Estilos para el estado de Habeas Data (verde = aceptado, rojo = pendiente)
+    estilo_hd_ok = ParagraphStyle(
+        "hd_ok", fontSize=7.5, leading=9.5,
+        textColor=VERDE_OK, fontName="Helvetica-Bold", alignment=TA_CENTER
+    )
+    estilo_hd_no = ParagraphStyle(
+        "hd_no", fontSize=7.5, leading=9.5,
+        textColor=ALERTA_ROJO, fontName="Helvetica-Bold", alignment=TA_CENTER
+    )
 
-    # Columnas: Nombre, Edad, Estado, Ú.Eval, Peso, IMC, % Grasa, Evals
-    cab_pac = ["Nombre", "Edad", "Estado", "Ú. Evaluación",
-               "Peso (kg)", "IMC", "% Grasa", "Evals."]
-    proporciones = [0.26, 0.06, 0.09, 0.14, 0.09, 0.08, 0.09, 0.08]
+    # Columnas: Nombre, Edad, Estado, Teléfono, Correo, Talla, Peso, IMC, %Grasa, Evals, Habeas Data
+    cab_pac = ["Nombre", "Edad", "Estado", "Teléfono", "Correo", "Talla (m)",
+               "Peso (kg)", "IMC", "% Grasa", "Evals.", "Habeas Data"]
+    proporciones = [0.18, 0.04, 0.07, 0.09, 0.15, 0.06, 0.06, 0.05, 0.06, 0.05, 0.08]
     anchos_pac_pdf = [ancho_total * p for p in proporciones]
 
     filas_pac = [[Paragraph(c, estilo_cab_tabla) for c in cab_pac]]
@@ -1079,16 +1154,21 @@ async def exportar_reporte_global_pdf(
         tiene_alerta = pac.get("tiene_alerta", False)
         est_nombre   = estilo_alerta_txt if tiene_alerta else estilo_cel_tabla
         est_centro   = estilo_alerta_txt if tiene_alerta else estilo_cel_c
+        hd_ok        = pac.get("habeas_data_aceptado", False)
+        est_hd       = estilo_hd_ok if hd_ok else estilo_hd_no
 
         filas_pac.append([
             Paragraph(pac["nombre"],                            est_nombre),
             Paragraph(str(pac["edad"]),                         est_centro),
             Paragraph((pac["estado"] or "—").capitalize(),     est_centro),
-            Paragraph(pac["ultima_evaluacion"] or "Sin eval.", est_centro),
-            Paragraph(str(pac["peso_actual_kg"] or "—"),       est_centro),
+            Paragraph(pac.get("telefono") or "—",               est_centro),
+            Paragraph(pac.get("correo") or "—",                 est_centro),
+            Paragraph(str(pac["talla_metros"]) if pac["talla_metros"] is not None else "—", est_centro),
+            Paragraph(str(pac["peso_actual_kg"] or pac["peso_inicial_kg"] or "—"), est_centro),
             Paragraph(str(pac["imc"] or "—"),                  est_centro),
             Paragraph(str(pac["porcentaje_grasa"] or "—"),     est_centro),
             Paragraph(str(pac["total_evaluaciones"]),          est_centro),
+            Paragraph("Sí" if hd_ok else "No",                  est_hd),
         ])
 
     tabla_pac = Table(filas_pac, colWidths=anchos_pac_pdf,
@@ -1096,7 +1176,7 @@ async def exportar_reporte_global_pdf(
 
     # Estilo alternado de filas
     estilo_tabla_pac = [
-        ("BACKGROUND",    (0, 0), (-1, 0),  ROJO),
+        ("BACKGROUND",    (0, 0), (-1, 0),  VERDE),
         ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
         ("FONTSIZE",      (0, 0), (-1, 0),  8),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  BLANCO),
@@ -1110,11 +1190,11 @@ async def exportar_reporte_global_pdf(
         ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
     ]
 
-    # Resaltar filas con alerta en rojo claro
+    # Resaltar filas con alerta en rojo claro (alerta real, no color de marca)
     for idx, pac in enumerate(datos["pacientes"], start=1):
         if pac.get("tiene_alerta"):
             estilo_tabla_pac.append(
-                ("BACKGROUND", (0, idx), (-1, idx), ROJO_MED)
+                ("BACKGROUND", (0, idx), (-1, idx), ALERTA_MED)
             )
 
     tabla_pac.setStyle(TableStyle(estilo_tabla_pac))
@@ -1129,8 +1209,8 @@ async def exportar_reporte_global_pdf(
         elementos.append(Spacer(1, 0.2 * cm))
 
         cab_alertas = ["Paciente", "Fecha", "Detalle de la Alerta"]
-        anchos_alertas = [ancho_total * 0.28, ancho_total * 0.15,
-                          ancho_total * 0.57]
+        anchos_alertas = [ancho_total * 0.22, ancho_total * 0.12,
+                          ancho_total * 0.66]
         filas_alertas = [[Paragraph(c, estilo_cab_tabla) for c in cab_alertas]]
 
         for alerta in datos["alertas"]:
@@ -1147,13 +1227,13 @@ async def exportar_reporte_global_pdf(
         tabla_alertas = Table(filas_alertas, colWidths=anchos_alertas,
                               repeatRows=1)
         tabla_alertas.setStyle(TableStyle([
-            ("BACKGROUND",    (0, 0), (-1, 0),  ROJO),
+            ("BACKGROUND",    (0, 0), (-1, 0),  ALERTA_ROJO),
             ("TEXTCOLOR",     (0, 0), (-1, 0),  BLANCO),
             ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
             ("FONTSIZE",      (0, 0), (-1, 0),  8),
             ("ALIGN",         (0, 0), (-1, 0),  "CENTER"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [ROJO_CL, ROJO_MED]),
-            ("GRID",          (0, 0), (-1, -1), 0.3, colors.HexColor("#FFCDD2")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [ALERTA_CL, ALERTA_MED]),
+            ("GRID",          (0, 0), (-1, -1), 0.3, ALERTA_MED),
             ("TOPPADDING",    (0, 0), (-1, -1), 5),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
             ("LEFTPADDING",   (0, 0), (-1, -1), 4),
@@ -1186,14 +1266,14 @@ async def exportar_reporte_global_pdf(
                 Paragraph(str(pac["total"]), estilo_cel_c),
                 Paragraph(barra_txt, ParagraphStyle(
                     "barra", fontSize=8, leading=10,
-                    textColor=ROJO, fontName="Helvetica",
+                    textColor=VERDE, fontName="Helvetica",
                     alignment=TA_LEFT
                 )),
             ])
 
         tabla_top = Table(filas_top, colWidths=anchos_top, repeatRows=1)
         tabla_top.setStyle(TableStyle([
-            ("BACKGROUND",    (0, 0), (-1, 0),  NEGRO),
+            ("BACKGROUND",    (0, 0), (-1, 0),  VERDE_OSC),
             ("TEXTCOLOR",     (0, 0), (-1, 0),  BLANCO),
             ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
             ("ALIGN",         (0, 0), (-1, 0),  "CENTER"),
@@ -1233,14 +1313,14 @@ async def exportar_reporte_global_pdf(
                 Paragraph(str(mes["total"]), estilo_cel_c),
                 Paragraph(barra_txt, ParagraphStyle(
                     "barraev", fontSize=9, leading=11,
-                    textColor=ROJO, fontName="Helvetica",
+                    textColor=VERDE, fontName="Helvetica",
                     alignment=TA_LEFT
                 )),
             ])
 
         tabla_ev = Table(filas_ev, colWidths=anchos_ev, repeatRows=1)
         tabla_ev.setStyle(TableStyle([
-            ("BACKGROUND",    (0, 0), (-1, 0),  NEGRO),
+            ("BACKGROUND",    (0, 0), (-1, 0),  VERDE_OSC),
             ("TEXTCOLOR",     (0, 0), (-1, 0),  BLANCO),
             ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
             ("ALIGN",         (0, 0), (-1, 0),  "CENTER"),
@@ -1257,7 +1337,7 @@ async def exportar_reporte_global_pdf(
     # ── PIE DE PÁGINA ─────────────────────────────────────────────────────
     elementos.append(HRFlowable(
         width="100%", thickness=1.5,
-        color=ROJO, spaceAfter=6
+        color=VERDE, spaceAfter=6
     ))
     elementos.append(Paragraph(
         f"FitPro — Sistema de Gestión Deportiva Profesional  |  "
