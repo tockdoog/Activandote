@@ -10,10 +10,16 @@
 #   3. Verifica que docker/.env exista
 #   4. Verifica que Docker Desktop este instalado y activo
 #   5. Detecta la IP de red local de macOS (para QR)
-#   6. Inyecta HOST_IP como variable de entorno al levantar
+#   6. Escribe HOST_IP directamente en docker/.env (persistente)
 #   7. Levanta los contenedores con docker compose up -d
 #   8. Espera a que los servicios esten disponibles
 #   9. Abre el navegador predeterminado en http://localhost
+#
+# CORRECCION IMPORTANTE (bug del QR con IP interna de Docker):
+# Antes HOST_IP se pasaba solo como variable de entorno del proceso
+# que ejecutaba "docker compose up". Ahora se escribe directamente en
+# docker/.env, que el backend siempre lee via env_file, sin importar
+# que comando haya iniciado los contenedores.
 # =============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -65,6 +71,10 @@ else
     exit 1
 fi
 
+# -----------------------------------------------
+# Detecta la IP de red local (WiFi/Ethernet) del Mac, descartando
+# loopback, la red interna de Docker/WSL2 (172.x.x.x) y APIPA.
+# -----------------------------------------------
 obtener_ip_red_local() {
     local ip_preferida=""
     local ip_alternativa=""
@@ -94,15 +104,29 @@ obtener_ip_red_local() {
     fi
 }
 
+# -----------------------------------------------
+# Escribe (o limpia) la linea HOST_IP= dentro de docker/.env.
+# Se elimina cualquier linea HOST_IP= previa y se agrega la actual
+# al final, para que siempre quede una sola definicion vigente.
+# -----------------------------------------------
+actualizar_host_ip_env() {
+    local ip="$1"
+    local archivo="$ENV_FILE"
+    [ -f "$archivo" ] || return
+
+    grep -v '^HOST_IP=' "$archivo" > "${archivo}.tmp" 2>/dev/null
+    mv "${archivo}.tmp" "$archivo"
+    echo "HOST_IP=$ip" >> "$archivo"
+}
+
 HOST_IP="$(obtener_ip_red_local)"
+actualizar_host_ip_env "$HOST_IP"
 
 cd "$ROOT_DIR" || exit 1
 
-if [ -n "$HOST_IP" ]; then
-    HOST_IP="$HOST_IP" $COMPOSE_CMD up -d
-else
-    $COMPOSE_CMD up -d
-fi
+# El backend lee HOST_IP desde docker/.env via "env_file" en
+# docker-compose.yml, por eso ya no es necesario exportarla aqui.
+$COMPOSE_CMD up -d
 
 if [ $? -ne 0 ]; then
     mostrar_error \
@@ -116,5 +140,3 @@ sleep 6
 open "http://localhost"
 
 exit 0
-
-

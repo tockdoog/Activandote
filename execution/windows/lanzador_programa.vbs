@@ -7,10 +7,20 @@
 '   2. Verifica que Docker Desktop este instalado
 '   3. Verifica que el motor de Docker este activo
 '   4. Detecta la IP de red local de Windows via WMI (para QR)
-'   5. Inyecta HOST_IP como variable SET en el comando docker compose
+'   5. Escribe HOST_IP directamente en docker\.env (persistente)
 '   6. Levanta los contenedores con docker compose up -d
 '   7. Espera a que los servicios esten disponibles
 '   8. Abre el navegador predeterminado en http://localhost
+'
+' NOTA IMPORTANTE (correccion del bug del QR):
+' Anteriormente HOST_IP se inyectaba solo como variable de entorno
+' efimera del proceso que ejecutaba "docker compose up". Eso fallaba
+' si el usuario levantaba los contenedores de otra forma (por ejemplo
+' con Instalador_programa.bat, que no seteaba esa variable), dejando
+' HOST_IP vacia y forzando al backend a mostrar la IP interna de Docker
+' en el QR (ej: 172.18.0.3). Ahora la IP se escribe directamente en
+' docker\.env, que el backend siempre lee via env_file sin importar
+' que script haya iniciado los contenedores.
 ' =============================================================
 
 Option Explicit
@@ -119,21 +129,21 @@ End If
 hostIP = ObtenerIPRedLocal()
 
 ' -----------------------------------------------
-' Levantar contenedores inyectando HOST_IP directamente
-' en el mismo comando CMD con SET antes de docker compose.
-' Esto garantiza que la variable este en el entorno del proceso
-' que ejecuta docker compose, no solo en el proceso padre VBS.
-'
-' Si no se detecto IP valida, se omite el SET y el contenedor
-' usara el fallback de socket UDP (funcionara solo en localhost).
+' Escribir la IP detectada directamente en docker\.env.
+' Esto reemplaza la inyeccion via variable de entorno del proceso:
+' el archivo .env es leido siempre por docker-compose (env_file),
+' sin importar que comando o script haya iniciado los contenedores.
+' Si no se detecto IP valida, se limpia la linea HOST_IP= para que
+' el backend caiga a su fallback controlado (nunca a una IP vieja
+' de otra red que ya no aplica).
 ' -----------------------------------------------
-If hostIP <> "" Then
-    ' Inyectar HOST_IP en el mismo shell que ejecuta docker compose
-    cmdDockerUp = "cmd /c cd /d """ & projectRoot & """ && SET HOST_IP=" & hostIP & " && " & composeCmd & " up -d"
-Else
-    ' Sin IP detectada: levantar sin HOST_IP (QR mostrara localhost)
-    cmdDockerUp = "cmd /c cd /d """ & projectRoot & """ && " & composeCmd & " up -d"
-End If
+ActualizarHostIPEnEnv envFile, hostIP
+
+' -----------------------------------------------
+' Levantar contenedores. El backend leera HOST_IP desde docker\.env
+' automaticamente gracias a "env_file" en docker-compose.yml.
+' -----------------------------------------------
+cmdDockerUp = "cmd /c cd /d """ & projectRoot & """ && " & composeCmd & " up -d"
 
 result = objShell.Run(cmdDockerUp, 0, True)
 
@@ -165,6 +175,50 @@ Set objShell = Nothing
 Set fso      = Nothing
 
 WScript.Quit 0
+
+
+' =============================================================
+' FUNCION: ActualizarHostIPEnEnv
+' Escribe (o reemplaza) la linea "HOST_IP=..." dentro del archivo
+' docker\.env indicado. Si la linea ya existe, se reemplaza; si no
+' existe, se agrega al final. Si ip llega vacio, escribe "HOST_IP="
+' para limpiar cualquier valor obsoleto de una red anterior.
+' =============================================================
+Sub ActualizarHostIPEnEnv(ByVal rutaEnvFile, ByVal ip)
+    Dim fsoLocal, ts, contenido, lineas, i, encontrado, nuevoContenido, lineaLimpia
+
+    Set fsoLocal = CreateObject("Scripting.FileSystemObject")
+    If Not fsoLocal.FileExists(rutaEnvFile) Then Exit Sub
+
+    ' Leer todo el contenido actual del archivo .env
+    Set ts = fsoLocal.OpenTextFile(rutaEnvFile, 1) ' 1 = ForReading
+    contenido = ts.ReadAll
+    ts.Close
+
+    lineas = Split(contenido, vbLf)
+    encontrado = False
+
+    For i = 0 To UBound(lineas)
+        lineaLimpia = Replace(lineas(i), vbCr, "")
+        If Left(lineaLimpia, 8) = "HOST_IP=" Then
+            lineas(i) = "HOST_IP=" & ip
+            encontrado = True
+        End If
+    Next
+
+    nuevoContenido = Join(lineas, vbLf)
+
+    If Not encontrado Then
+        nuevoContenido = nuevoContenido & vbLf & "HOST_IP=" & ip
+    End If
+
+    ' Sobreescribir el archivo completo con el contenido actualizado
+    Set ts = fsoLocal.OpenTextFile(rutaEnvFile, 2, True) ' 2 = ForWriting
+    ts.Write nuevoContenido
+    ts.Close
+
+    Set fsoLocal = Nothing
+End Sub
 
 
 ' =============================================================

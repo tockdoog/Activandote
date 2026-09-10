@@ -3,7 +3,15 @@
 # =============================================================
 # execution/mac/instalar_programa.command
 # Instalador inicial de FitPro para macOS.
-# Verifica prerequisitos, crea docker/.env y descarga imagenes.
+# Verifica prerequisitos, crea/actualiza docker/.env y descarga imagenes.
+#
+# CORRECCION IMPORTANTE (bug critico de configuracion perdida):
+# La version anterior generaba docker/.env desde cero con SOLO la
+# linea "HOST_IP=...", borrando SECRET_KEY, CORS_ALLOW_ALL, licencia
+# y el resto de variables necesarias para que el backend funcione
+# correctamente. Ahora se copia docker/.env.example completo (igual
+# que hace el instalador de Windows) y solo se agrega o actualiza la
+# linea HOST_IP=, preservando todas las demas variables.
 # =============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,6 +21,7 @@ ROOT_DIR="$(cd "$EXEC_DIR/.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.yml"
 DOCKER_DIR="$ROOT_DIR/docker"
 ENV_FILE="$DOCKER_DIR/.env"
+ENV_EXAMPLE="$DOCKER_DIR/.env.example"
 
 mostrar_error() {
     osascript -e "display dialog \"$1\" with title \"$2\" buttons {\"Cerrar\"} default button \"Cerrar\" with icon stop"
@@ -53,6 +62,13 @@ else
     exit 1
 fi
 
+# -----------------------------------------------
+# Detecta la IP de red local (WiFi/Ethernet) del Mac, descartando
+# loopback, la red interna de Docker/WSL2 (172.x.x.x) y APIPA.
+# Si no se detecta ninguna, devuelve cadena vacia (no "localhost"),
+# para que el backend la trate de forma consistente con el resto
+# de scripts como "no configurada" en vez de un valor invalido.
+# -----------------------------------------------
 obtener_ip_red_local() {
     local ip_preferida=""
     local ip_alternativa=""
@@ -79,8 +95,6 @@ obtener_ip_red_local() {
         echo "$ip_preferida"
     elif [ -n "$ip_alternativa" ]; then
         echo "$ip_alternativa"
-    else
-        echo "localhost"
     fi
 }
 
@@ -96,21 +110,37 @@ if [ ! -d "$DOCKER_DIR" ]; then
     fi
 fi
 
-cat > "$ENV_FILE" << EOF
-# =============================================================
-# FitPro - Configuracion de entorno
-# Generado automaticamente por instalar_programa.command
-# =============================================================
+# -----------------------------------------------
+# Crear docker/.env desde la plantilla completa (.env.example) si
+# todavia no existe, en vez de generarlo desde cero con una sola
+# linea. Esto preserva SECRET_KEY, CORS_ALLOW_ALL, licencia, etc.
+# Si docker/.env ya existe (instalaciones previas), se conserva tal
+# cual esta y solo se actualiza la linea HOST_IP mas abajo.
+# -----------------------------------------------
+if [ ! -f "$ENV_FILE" ]; then
+    if [ ! -f "$ENV_EXAMPLE" ]; then
+        mostrar_error \
+            "No existe docker/.env.example.\n\nRuta esperada:\n$ENV_EXAMPLE\n\nEl proyecto esta incompleto." \
+            "FitPro - Plantilla No Encontrada"
+        exit 1
+    fi
 
-HOST_IP=$HOST_IP
-EOF
-
-if [ $? -ne 0 ]; then
-    mostrar_error \
-        "No se pudo crear el archivo de configuracion:\n$ENV_FILE\n\nVerifica que tienes permisos de escritura en la carpeta docker/." \
-        "FitPro - Error al Crear Configuracion"
-    exit 1
+    cp "$ENV_EXAMPLE" "$ENV_FILE"
+    if [ $? -ne 0 ]; then
+        mostrar_error \
+            "No se pudo crear el archivo de configuracion:\n$ENV_FILE\n\nVerifica que tienes permisos de escritura en la carpeta docker/." \
+            "FitPro - Error al Crear Configuracion"
+        exit 1
+    fi
 fi
+
+# -----------------------------------------------
+# Actualizar (o agregar) la linea HOST_IP= dentro de docker/.env,
+# sin tocar el resto de variables ya presentes en el archivo.
+# -----------------------------------------------
+grep -v '^HOST_IP=' "$ENV_FILE" > "${ENV_FILE}.tmp" 2>/dev/null
+mv "${ENV_FILE}.tmp" "$ENV_FILE"
+echo "HOST_IP=$HOST_IP" >> "$ENV_FILE"
 
 cd "$ROOT_DIR" || exit 1
 
@@ -124,7 +154,7 @@ if [ $? -ne 0 ]; then
 fi
 
 mostrar_info \
-    "FitPro instalado correctamente.\n\nIP detectada para acceso movil: $HOST_IP\n\nPara iniciar el programa:\n→ Haz doble clic en lanzador_programa.command" \
+    "FitPro instalado correctamente.\n\nIP detectada para acceso movil: ${HOST_IP:-No detectada (se usara localhost)}\n\nPara iniciar el programa:\n→ Haz doble clic en lanzador_programa.command" \
     "FitPro - Instalacion Completa"
 
 exit 0

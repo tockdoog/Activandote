@@ -1,7 +1,8 @@
 # backend/app/routers/dashboard.py
 # Endpoints del panel estadístico: métricas globales, análisis del entrenador
 # y exportación de reportes globales en Excel y PDF.
-# El endpoint /network-info usa HOST_IP inyectada por los scripts de lanzamiento.
+# El endpoint /network-info usa HOST_IP inyectada desde docker/.env por los
+# scripts de lanzamiento.
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import StreamingResponse
@@ -1366,7 +1367,19 @@ async def exportar_reporte_global_pdf(
 
 
 # =============================================================
-# ENDPOINT EXISTENTE: NETWORK INFO
+# ENDPOINT CORREGIDO: NETWORK INFO
+#
+# BUG ORIGINAL: el fallback por socket UDP no se validaba contra
+# es_ip_red_valida(), así que si el socket devolvía la IP del propio
+# contenedor en la red bridge de Docker (rango 172.x.x.x), esa IP se
+# enviaba igual al frontend y terminaba en el QR, generando una URL
+# inaccesible desde otros dispositivos (ej: http://172.18.0.3).
+#
+# CORRECCIÓN: ahora TODA IP candidata (venga de HOST_IP o del socket)
+# pasa por la misma validación antes de responder. Si ninguna fuente
+# entrega una IP de red local real, se responde explícitamente con
+# "configurado": False para que el frontend explique cómo solucionarlo,
+# en vez de mostrar silenciosamente una URL que no va a funcionar.
 # =============================================================
 
 @router.get("/network-info")
@@ -1375,7 +1388,9 @@ async def obtener_info_red(
 ):
     """
     Retorna la IP de red local del servidor anfitrión para el código QR.
-    Prioridades: HOST_IP inyectada > socket UDP > hostname.
+    Prioridades: HOST_IP (desde docker/.env) > socket UDP > hostname.
+    Todas las candidatas se validan; nunca se devuelve una IP interna
+    de Docker (172.x.x.x), loopback (127.x.x.x) ni APIPA (169.254.x.x).
     """
     host_ip = os.getenv("HOST_IP", "").strip()
 
@@ -1394,12 +1409,21 @@ async def obtener_info_red(
             return False
         return all(p.isdigit() and 0 <= int(p) <= 255 for p in partes)
 
-    # PRIORIDAD 1: IP inyectada por el script de lanzamiento
+    # PRIORIDAD 1: IP persistida en docker/.env por el script de lanzamiento
     if es_ip_red_valida(host_ip):
-        logger.info(f"IP de red desde HOST_IP: {host_ip}")
-        return {"ip": host_ip, "url": f"http://{host_ip}", "puerto": 80, "fuente": "host"}
+        logger.info(f"IP de red desde HOST_IP (docker/.env): {host_ip}")
+        return {
+            "ip": host_ip,
+            "url": f"http://{host_ip}",
+            "puerto": 80,
+            "fuente": "host",
+            "configurado": True
+        }
 
-    # PRIORIDAD 2: Socket UDP ficticio (solo útil fuera de Docker)
+    # PRIORIDAD 2: Socket UDP ficticio (solo útil fuera de Docker, ej.
+    # ejecutando uvicorn directo en desarrollo sin contenedores).
+    # Dentro de un contenedor Docker esto normalmente devuelve la IP de
+    # la red bridge (172.x.x.x), por lo que SIEMPRE se valida antes de usarse.
     ip_socket = None
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -1408,13 +1432,41 @@ async def obtener_info_red(
         ip_socket = sock.getsockname()[0]
         sock.close()
     except Exception:
-        pass
+        ip_socket = None
 
     if not ip_socket:
         try:
             ip_socket = socket.gethostbyname(socket.gethostname())
         except Exception:
-            ip_socket = "localhost"
+            ip_socket = None
 
-    logger.warning(f"HOST_IP no disponible. IP detectada por socket: {ip_socket}")
-    return {"ip": ip_socket, "url": f"http://{ip_socket}", "puerto": 80, "fuente": "socket"}
+    # Solo se usa el resultado del socket si pasa la misma validación
+    # que HOST_IP — antes este paso faltaba y era la causa del bug del QR.
+    if ip_socket and es_ip_red_valida(ip_socket):
+        logger.warning(
+            f"HOST_IP no configurada. Usando IP detectada por socket: {ip_socket}"
+        )
+        return {
+            "ip": ip_socket,
+            "url": f"http://{ip_socket}",
+            "puerto": 80,
+            "fuente": "socket",
+            "configurado": True
+        }
+
+    # Ninguna fuente entregó una IP de red local válida. Esto es lo
+    # esperado dentro de Docker si el script de lanzamiento no pudo
+    # detectar la IP del equipo o si HOST_IP quedó vacía en docker/.env.
+    # Se devuelve localhost explícitamente en vez de una IP inútil,
+    # para que el frontend pueda avisar en vez de mostrar un QR roto.
+    logger.warning(
+        "No se pudo determinar una IP de red local válida. "
+        "HOST_IP no está configurada en docker/.env."
+    )
+    return {
+        "ip": "localhost",
+        "url": "http://localhost",
+        "puerto": 80,
+        "fuente": "no_configurado",
+        "configurado": False
+    }

@@ -20,17 +20,31 @@ services:
     container_name: fitpro_backend
     restart: unless-stopped
 
-    # Variables de entorno cargadas desde docker/.env.
-    # HOST_IP se inyecta dinámicamente desde el script iniciar-fitpro.ps1
-    # usando: docker compose up -e HOST_IP=192.168.x.x
-    # Si no se pasa (arranque manual), queda vacío y el backend usa el socket UDP.
+    # -------------------------------------------------------------------
+    # CORRECCIÓN DEL BUG DEL QR (IP interna de Docker en vez de la LAN):
+    #
+    # ANTES este archivo tenía además un bloque:
+    #   environment:
+    #     - HOST_IP=${HOST_IP:-}
+    #
+    # En Docker Compose, "environment:" SIEMPRE tiene prioridad sobre
+    # "env_file:", incluso si el valor interpolado es una cadena vacía.
+    # Como casi ningún script exportaba HOST_IP en la shell antes de
+    # ejecutar "docker compose up", esa línea sobreescribía silenciosamente
+    # cualquier HOST_IP válida que ya existiera en docker/.env con "",
+    # forzando al backend a su fallback interno (que dentro de Docker
+    # solo puede ver la IP de la red bridge, ej: 172.18.0.3).
+    #
+    # AHORA: HOST_IP se define ÚNICAMENTE dentro de docker/.env y se
+    # entrega al contenedor solo a través de env_file. Los scripts de
+    # lanzamiento (lanzador_programa.vbs, lanzador_programa.command,
+    # lanzar_programa.sh) detectan la IP de red local del equipo y
+    # actualizan la línea HOST_IP= dentro de docker/.env ANTES de
+    # levantar los contenedores. Así el valor persiste sin importar
+    # qué script o comando use la persona para iniciar Docker.
+    # -------------------------------------------------------------------
     env_file:
       - docker/.env
-
-    environment:
-      # HOST_IP se sobreescribe en tiempo de ejecución por el script .ps1.
-      # El valor vacío aquí es el fallback si se arranca sin el script.
-      - HOST_IP=${HOST_IP:-}
 
     volumes:
       - fitpro_db_data:/app/data

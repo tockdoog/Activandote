@@ -1,11 +1,18 @@
 @echo off
 :: =============================================================
 :: execution/windows/Instalador_programa.bat
-:: Instala FitPro con Docker: levanta contenedores y crea
-:: el acceso directo en el Escritorio.
+:: Instala FitPro con Docker: detecta la IP de red local, levanta
+:: contenedores y crea el acceso directo en el Escritorio.
 :: Usa !errorlevel! para deteccion confiable de errores.
-:: El shortcut se crea via archivo .ps1 temporal para evitar
-:: problemas de escaping con comillas en PowerShell inline.
+:: Los archivos .ps1 temporales evitan problemas de escaping de
+:: comillas con PowerShell inline.
+::
+:: CORRECCION IMPORTANTE:
+:: Antes este instalador ejecutaba "docker compose up --build -d"
+:: SIN detectar ni escribir HOST_IP en ningun lado. Eso dejaba el QR
+:: de acceso en red mostrando la IP interna de Docker (172.x.x.x) en
+:: vez de la IP real de la red WiFi/LAN. Ahora el PASO 5 detecta la
+:: IP local y la escribe en docker\.env antes de levantar Docker.
 :: =============================================================
 
 setlocal EnableDelayedExpansion
@@ -40,7 +47,7 @@ echo  ------------------------------------------------------
 :: PASO 1: Verificar Docker instalado
 :: -----------------------------------------------
 echo.
-echo  [PASO 1/6] Verificando Docker Desktop...
+echo  [PASO 1/7] Verificando Docker Desktop...
 
 where docker >nul 2>&1
 set "EL=!errorlevel!"
@@ -68,7 +75,7 @@ echo        Docker !DOCKER_VER! instalado. [OK]
 :: porque ps es mas rapido y confiable para este chequeo
 :: -----------------------------------------------
 echo.
-echo  [PASO 2/6] Verificando motor de Docker activo...
+echo  [PASO 2/7] Verificando motor de Docker activo...
 
 docker ps >nul 2>&1
 set "EL=!errorlevel!"
@@ -93,7 +100,7 @@ echo        Motor de Docker activo. [OK]
 :: PASO 3: Detectar version de Docker Compose
 :: -----------------------------------------------
 echo.
-echo  [PASO 3/6] Detectando Docker Compose...
+echo  [PASO 3/7] Detectando Docker Compose...
 
 docker compose version >nul 2>&1
 set "EL=!errorlevel!"
@@ -121,7 +128,7 @@ if "!EL!" equ "0" (
 :: PASO 4: Crear docker/.env desde .env.example si no existe
 :: -----------------------------------------------
 echo.
-echo  [PASO 4/6] Verificando configuracion (.env)...
+echo  [PASO 4/7] Verificando configuracion (.env)...
 
 if exist "!ENV_FILE!" (
     echo        docker\.env ya existe. Configuracion conservada. [OK]
@@ -146,12 +153,40 @@ if exist "!ENV_FILE!" (
 )
 
 :: -----------------------------------------------
-:: PASO 5: Construir imagenes y levantar contenedores
+:: PASO 5: Detectar IP de red local y escribirla en docker\.env
+::
+:: Se usa PowerShell porque detectar adaptadores de red confiablemente
+:: en batch puro es poco practico. La IP se escribe DIRECTAMENTE en
+:: docker\.env (linea HOST_IP=) para que el backend la lea siempre
+:: via env_file, sin depender de variables de entorno del proceso
+:: que ejecuta "docker compose up" (esa dependencia era el bug original
+:: que hacia que el QR mostrara la IP interna de Docker).
+:: -----------------------------------------------
+echo.
+echo  [PASO 5/7] Detectando IP de red local para el codigo QR...
+
+set "PS_IP_TEMP=%TEMP%\fitpro_detectar_ip.ps1"
+
+> "%PS_IP_TEMP%" (
+    echo $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue ^| Where-Object {$_.IPAddress -like '192.168.*'} ^| Select-Object -First 1^).IPAddress
+    echo if (-not $ip^) { $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue ^| Where-Object {$_.IPAddress -like '10.*'} ^| Select-Object -First 1^).IPAddress }
+    echo $rutaEnv = '%ENV_FILE%'
+    echo $lineas = Get-Content -Path $rutaEnv ^| Where-Object {$_ -notmatch '^HOST_IP='}
+    echo if ($ip^) { $lineas += "HOST_IP=$ip" } else { $lineas += 'HOST_IP=' }
+    echo Set-Content -Path $rutaEnv -Value $lineas
+    echo if ($ip^) { Write-Host '       IP de red local detectada:' $ip } else { Write-Host '       [ADVERTENCIA] No se detecto IP de red local. El QR usara localhost.' }
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_IP_TEMP%"
+del "%PS_IP_TEMP%" >nul 2>&1
+
+:: -----------------------------------------------
+:: PASO 6: Construir imagenes y levantar contenedores
 :: --build  → reconstruye con los ultimos cambios del codigo
 :: -d       → detached, corre en segundo plano
 :: -----------------------------------------------
 echo.
-echo  [PASO 5/6] Iniciando servicios con Docker...
+echo  [PASO 6/7] Iniciando servicios con Docker...
 echo        Comando: !COMPOSE_CMD! up --build -d
 echo        La primera vez puede tardar 5-10 minutos.
 echo.
@@ -201,7 +236,7 @@ if "!errorlevel!" equ "0" (
 )
 
 :: -----------------------------------------------
-:: PASO 6: Crear acceso directo en el Escritorio
+:: PASO 7: Crear acceso directo en el Escritorio
 ::
 :: Se escribe un archivo .ps1 temporal para evitar el problema
 :: de escaping de comillas con PowerShell en linea (inline).
@@ -209,7 +244,7 @@ if "!errorlevel!" equ "0" (
 :: caracteres especiales o versiones distintas de PowerShell.
 :: -----------------------------------------------
 echo.
-echo  [PASO 6/6] Creando acceso directo en el Escritorio...
+echo  [PASO 7/7] Creando acceso directo en el Escritorio...
 
 :: Verificar que el VBS lanzador exista antes de crear el shortcut
 if not exist "%LAUNCHER_VBS%" (
