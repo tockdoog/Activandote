@@ -1,5 +1,6 @@
 <!-- frontend/dashboard.html -->
-<!-- Panel principal: estadísticas globales, gráficas, alertas y QR de red local -->
+<!-- Panel principal: estadísticas globales, gráficas, alertas, QR de red local
+     y badge de tiempo restante de la licencia mensual -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -319,6 +320,68 @@
       font-weight: 800;
       color: var(--verde-primario);
     }
+
+    /* -----------------------------------------------
+       BADGE DE TIEMPO RESTANTE DE LICENCIA
+       Píldora pequeña en el topbar. Colores según urgencia:
+       - ok         -> verde suave  (más de LICENSE_WARNING_DAYS días)
+       - advertencia -> ámbar       (LICENSE_WARNING_DAYS días o menos)
+       - vencida    -> rojo         (no debería verse: license.js redirige antes)
+       ----------------------------------------------- */
+    .license-time-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      cursor: default;
+      font-family: var(--fuente-cuerpo);
+      transition: opacity var(--transicion-rapida);
+    }
+
+    /* Estado normal: licencia vigente con margen amplio */
+    .license-time-badge.ok {
+      background: var(--verde-translucido);
+      border-color: var(--verde-borde);
+      color: var(--verde-oscuro);
+    }
+
+    /* Estado advertencia: quedan pocos días (mismo umbral que el banner) */
+    .license-time-badge.advertencia {
+      background: rgba(217,119,6,0.10);
+      border-color: rgba(217,119,6,0.30);
+      color: #92400E;
+      animation: licenciaBadgePulso 2.5s ease-in-out infinite;
+    }
+
+    /* Estado vencida: caso límite, por si el usuario alcanza a ver el dashboard
+       un instante antes de que license.js lo redirija */
+    .license-time-badge.vencida {
+      background: rgba(239,68,68,0.10);
+      border-color: rgba(239,68,68,0.30);
+      color: #991B1B;
+    }
+
+    /* Mientras se consulta el estado por primera vez */
+    .license-time-badge.cargando {
+      background: var(--gris-100);
+      border-color: var(--gris-borde);
+      color: #516651;
+    }
+
+    @keyframes licenciaBadgePulso {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.6; }
+    }
+
+    /* En pantallas pequeñas se oculta el texto y solo queda el ícono + días */
+    @media (max-width: 576px) {
+      .license-time-badge-texto-largo { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -387,6 +450,20 @@
       </div>
 
       <div class="topbar-actions">
+
+        <!-- Badge pequeño de tiempo restante de la licencia mensual.
+             Se llena por JS al cargar la página (ver script al final).
+             title="" se actualiza dinámicamente con el detalle completo
+             (fecha exacta de vencimiento) para quien pase el mouse. -->
+        <div
+          id="license-time-badge"
+          class="license-time-badge cargando"
+          title="Consultando estado de la licencia..."
+        >
+          <i class="bi bi-clock-history"></i>
+          <span id="license-time-badge-texto">Verificando…</span>
+        </div>
+
         <!-- Badge de alertas -->
         <button
           class="btn btn-secundario btn-icon position-relative"
@@ -695,8 +772,98 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <!-- Cliente API -->
 <script src="js/api.js"></script>
+<!-- Licencia mensual: banner de advertencia, countdown y bloqueo por vencimiento.
+     Debe ir DESPUÉS de api.js y ANTES de dashboard.js, igual que en las demás
+     páginas protegidas del sistema. -->
+<script src="js/license.js"></script>
 <!-- Lógica del dashboard -->
 <script src="js/dashboard.js"></script>
+
+<!-- -----------------------------------------------
+     BADGE DE TIEMPO RESTANTE DE LICENCIA (script embebido)
+     Consulta GET /api/v1/licensing/estado y pinta el badge pequeño del
+     topbar con los días/horas restantes. Se mantiene independiente de
+     license.js a propósito: license.js decide CUÁNDO bloquear/advertir,
+     este bloque solo MUESTRA el tiempo restante de forma informativa.
+     ----------------------------------------------- -->
+<script>
+  // -----------------------------------------------
+  // Configuración del badge de tiempo restante
+  // -----------------------------------------------
+  const LICENSE_BADGE_CONFIG = {
+    // Cada cuántos minutos refrescar el dato contra el servidor
+    INTERVALO_REFRESCO_MINUTOS: 5,
+  };
+
+  /**
+   * Consulta el estado de la licencia y actualiza el badge del topbar
+   * con el tiempo restante, aplicando el color según la urgencia.
+   */
+  async function actualizarBadgeLicencia() {
+    const badge = document.getElementById('license-time-badge');
+    const texto = document.getElementById('license-time-badge-texto');
+    if (!badge || !texto) return;
+
+    try {
+      const estado = await api.get('/licensing/estado');
+
+      // Elegir el estado visual del badge según los datos recibidos
+      let claseEstado = 'ok';
+      if (!estado.acceso_permitido) {
+        claseEstado = 'vencida';
+      } else if (estado.mostrar_advertencia) {
+        claseEstado = 'advertencia';
+      }
+
+      badge.className = `license-time-badge ${claseEstado}`;
+      badge.title = `${estado.mensaje} (vence el ${estado.fecha_vencimiento})`;
+
+      // Texto compacto del badge: prioriza días; si es el último día,
+      // muestra horas para que la urgencia sea más clara
+      texto.textContent = _formatearTiempoBadge(estado.dias_restantes, estado.segundos_restantes);
+
+    } catch (error) {
+      // No se pudo consultar el estado (red caída, etc.): dejar el badge
+      // en un estado neutro en vez de bloquear la carga del dashboard
+      badge.className = 'license-time-badge cargando';
+      badge.title = 'No se pudo consultar el estado de la licencia';
+      texto.textContent = 'Licencia: —';
+    }
+  }
+
+  /**
+   * Da formato corto y legible al tiempo restante para el badge pequeño.
+   * @param {number} diasRestantes
+   * @param {number} segundosRestantes
+   * @returns {string}
+   */
+  function _formatearTiempoBadge(diasRestantes, segundosRestantes) {
+    if (diasRestantes < 0) return 'Licencia vencida';
+
+    if (diasRestantes === 0) {
+      // Último día: mostrar horas restantes para reforzar la urgencia
+      const horas = Math.max(Math.floor(segundosRestantes / 3600), 0);
+      return `Licencia: vence en ${horas}h`;
+    }
+
+    if (diasRestantes === 1) return 'Licencia: 1 día restante';
+
+    return `Licencia: ${diasRestantes} días restantes`;
+  }
+
+  // -----------------------------------------------
+  // Inicialización: primera consulta al cargar la página,
+  // luego refresco periódico para que el badge no quede desactualizado
+  // si el usuario deja el dashboard abierto varias horas.
+  // -----------------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    actualizarBadgeLicencia();
+    setInterval(
+      actualizarBadgeLicencia,
+      LICENSE_BADGE_CONFIG.INTERVALO_REFRESCO_MINUTOS * 60 * 1000
+    );
+  });
+</script>
 
 </body>
 </html>
