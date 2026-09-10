@@ -1,6 +1,7 @@
 <!-- frontend/patients.html -->
-<!-- Gestión de pacientes: listado, búsqueda, filtros, CRUD completo y
-     exportación del consolidado de pacientes en Excel/PDF -->
+<!-- Gestión de pacientes: listado ordenable, búsqueda por múltiples campos,
+     filtros avanzados, CRUD completo y exportación del consolidado de
+     pacientes en Excel/PDF -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -95,6 +96,14 @@
       margin-top: 2px;
     }
 
+    /* Número de documento visible bajo el nombre, cuando existe */
+    .avatar-documento {
+      font-size: 0.72rem;
+      color: var(--verde-oscuro);
+      margin-top: 1px;
+      font-weight: 600;
+    }
+
     /* Contador de evaluaciones destacado */
     .eval-count {
       display: inline-flex;
@@ -172,7 +181,7 @@
       flex-wrap: wrap;
       gap: var(--sp-md);
       align-items: center;
-      margin-bottom: var(--sp-lg);
+      margin-bottom: var(--sp-sm);
       box-shadow: var(--sombra-sm);
     }
 
@@ -182,6 +191,49 @@
       height: 28px;
       background: var(--gris-200);
       flex-shrink: 0;
+    }
+
+    /* -----------------------------------------------
+       PANEL DE FILTROS AVANZADOS (plegable)
+       Se abre/cierra con el botón "Más filtros". Mantiene la misma
+       paleta verde/blanco del resto del panel de filtros.
+       ----------------------------------------------- */
+    .filtros-avanzados {
+      background: var(--gris-panel);
+      border: 1px solid var(--gris-borde);
+      border-radius: var(--radio-xl);
+      padding: var(--sp-md) var(--sp-lg);
+      margin-bottom: var(--sp-lg);
+      display: none;
+      flex-wrap: wrap;
+      gap: var(--sp-md);
+      align-items: flex-end;
+    }
+
+    .filtros-avanzados.abierto { display: flex; }
+
+    .filtro-campo-mini { display: flex; flex-direction: column; gap: 4px; }
+
+    .filtro-campo-mini label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #1F3A1F;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .filtro-campo-mini .form-control { max-width: 140px; }
+
+    .filtro-rango {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filtro-rango span {
+      font-size: 0.78rem;
+      color: #516651;
+      font-weight: 600;
     }
 
     /* Sección header de modal */
@@ -208,6 +260,7 @@
 
     @media (max-width: 540px) {
       .campos-grid { grid-template-columns: 1fr; }
+      .filtro-campo-mini .form-control { max-width: 100%; }
     }
 
     /* -----------------------------------------------
@@ -354,7 +407,7 @@
         </button>
       </div>
 
-      <!-- ── Filtros y búsqueda ── -->
+      <!-- ── Filtros y búsqueda principal ── -->
       <div class="filtros-barra">
 
         <!-- Búsqueda -->
@@ -364,7 +417,7 @@
             type="text"
             class="form-control busqueda-input"
             id="input-busqueda"
-            placeholder="Buscar por nombre, teléfono o correo..."
+            placeholder="Buscar por nombre, documento, teléfono o correo..."
             autocomplete="off"
           />
         </div>
@@ -396,9 +449,60 @@
           <option value="inactivo">Inactivos</option>
         </select>
 
+        <div class="filtro-separador d-none d-md-block"></div>
+
+        <!-- Ordenamiento del listado -->
+        <select
+          class="form-control"
+          id="filtro-orden"
+          onchange="filtrarPacientes()"
+          style="max-width:200px;min-width:170px"
+          title="Ordenar listado"
+        >
+          <option value="nombre:asc">Nombre (A-Z)</option>
+          <option value="nombre:desc">Nombre (Z-A)</option>
+          <option value="edad:asc">Edad (menor a mayor)</option>
+          <option value="edad:desc">Edad (mayor a menor)</option>
+          <option value="fecha_ingreso:desc">Ingreso más reciente</option>
+          <option value="fecha_ingreso:asc">Ingreso más antiguo</option>
+          <option value="evaluaciones:desc">Más evaluaciones</option>
+          <option value="evaluaciones:asc">Menos evaluaciones</option>
+        </select>
+
+        <!-- Alternar filtros avanzados -->
+        <button class="btn btn-secundario btn-sm" onclick="toggleFiltrosAvanzados()" id="btn-toggle-avanzados">
+          <i class="bi bi-sliders me-1"></i> Más filtros
+        </button>
+
         <!-- Limpiar filtros -->
         <button class="btn btn-secundario btn-sm" onclick="limpiarFiltros()">
           <i class="bi bi-x-circle me-1"></i> Limpiar
+        </button>
+      </div>
+
+      <!-- ── Filtros avanzados: edad y fecha de ingreso ── -->
+      <div class="filtros-avanzados" id="panel-filtros-avanzados">
+
+        <div class="filtro-campo-mini">
+          <label>Rango de edad</label>
+          <div class="filtro-rango">
+            <input type="number" class="form-control" id="filtro-edad-min" min="0" max="120" placeholder="Mín" />
+            <span>–</span>
+            <input type="number" class="form-control" id="filtro-edad-max" min="0" max="120" placeholder="Máx" />
+          </div>
+        </div>
+
+        <div class="filtro-campo-mini">
+          <label>Fecha de ingreso</label>
+          <div class="filtro-rango">
+            <input type="date" class="form-control" id="filtro-fecha-desde" style="max-width:160px" />
+            <span>a</span>
+            <input type="date" class="form-control" id="filtro-fecha-hasta" style="max-width:160px" />
+          </div>
+        </div>
+
+        <button class="btn btn-primario btn-sm" onclick="filtrarPacientes()">
+          <i class="bi bi-funnel me-1"></i> Aplicar
         </button>
       </div>
 
@@ -518,6 +622,14 @@
               <option value="prefiere_no_decir">Prefiere no decir</option>
             </select>
             <div class="campo-error" id="err-p-genero">Seleccione un género</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Número de documento</label>
+            <input
+              type="text" id="p-documento" class="form-control"
+              placeholder="1020304050" maxlength="20"
+            />
           </div>
 
           <div class="form-group">
@@ -747,7 +859,7 @@
 <script src="js/api.js"></script>
 <!-- Licencia -->
 <script src="js/license.js"></script>
-<!-- Lógica CRUD de pacientes y exportación del consolidado -->
+<!-- Lógica CRUD de pacientes, filtros avanzados, orden y exportación -->
 <script src="js/patients.js"></script>
 
 </body>

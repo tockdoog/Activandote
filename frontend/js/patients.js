@@ -1,6 +1,7 @@
 // frontend/js/patients.js
-// Lógica CRUD completa de pacientes: listado, búsqueda, creación, edición,
-// eliminación y exportación del consolidado de pacientes (Excel/PDF)
+// Lógica CRUD completa de pacientes: listado ordenable, búsqueda por
+// múltiples campos, filtros avanzados (edad y fecha de ingreso), creación,
+// edición, eliminación y exportación del consolidado de pacientes (Excel/PDF)
 
 // -----------------------------------------------
 // Verificación de sesión activa
@@ -44,28 +45,43 @@ function inicializarUsuario() {
 }
 
 // -----------------------------------------------
-// CARGA Y FILTRADO DE PACIENTES
+// CARGA, FILTRADO Y ORDENAMIENTO DE PACIENTES
 // -----------------------------------------------
 
 /**
- * Carga la lista de pacientes con los filtros activos.
+ * Carga la lista de pacientes con los filtros y el orden activos.
  * Aplica paginación y muestra los resultados en la tabla.
  */
 async function cargarPacientes(pagina = 1) {
   estado.paginaActual = pagina;
 
-  // Recoger valores de los filtros activos
-  const buscar      = document.getElementById('input-busqueda').value.trim();
-  const genero      = document.getElementById('filtro-genero').value;
-  const estadoFilt  = document.getElementById('filtro-estado').value;
+  // Recoger valores de los filtros principales
+  const buscar     = document.getElementById('input-busqueda').value.trim();
+  const genero     = document.getElementById('filtro-genero').value;
+  const estadoFilt = document.getElementById('filtro-estado').value;
 
-  // Construir parámetros para la API
+  // El selector de orden viaja como "campo:direccion" (ej: "edad:desc")
+  const [ordenPor, ordenDireccion] = document.getElementById('filtro-orden').value.split(':');
+
+  // Recoger valores de los filtros avanzados (rango de edad y de fecha)
+  const edadMin      = document.getElementById('filtro-edad-min').value;
+  const edadMax      = document.getElementById('filtro-edad-max').value;
+  const fechaDesde   = document.getElementById('filtro-fecha-desde').value;
+  const fechaHasta   = document.getElementById('filtro-fecha-hasta').value;
+
+  // Construir parámetros para la API (solo se envían los que tienen valor)
   const params = {
     page: pagina,
     per_page: estado.porPagina,
+    orden_por: ordenPor,
+    orden_direccion: ordenDireccion,
     ...(buscar     && { buscar }),
     ...(genero     && { genero }),
-    ...(estadoFilt && { estado: estadoFilt })
+    ...(estadoFilt && { estado: estadoFilt }),
+    ...(edadMin    && { edad_min: edadMin }),
+    ...(edadMax    && { edad_max: edadMax }),
+    ...(fechaDesde && { fecha_desde: fechaDesde }),
+    ...(fechaHasta && { fecha_hasta: fechaHasta })
   };
 
   const tbody = document.getElementById('tbody-pacientes');
@@ -97,7 +113,7 @@ async function cargarPacientes(pagina = 1) {
       return;
     }
 
-    // Renderizar filas
+    // Renderizar filas (el orden ya viene aplicado desde el backend)
     tbody.innerHTML = respuesta.items.map(p => renderizarFilaPaciente(p)).join('');
 
     // Paginación
@@ -116,7 +132,7 @@ async function cargarPacientes(pagina = 1) {
 
 /**
  * Genera el HTML de una fila de paciente para la tabla.
- * Todos los colores usan la paleta verde/blanco del nuevo diseño.
+ * Todos los colores usan la paleta verde/blanco del diseño.
  */
 function renderizarFilaPaciente(p) {
   // Iniciales del nombre para el avatar
@@ -136,6 +152,14 @@ function renderizarFilaPaciente(p) {
     : p.genero === 'femenino' ? 'bi-gender-female'
     : 'bi-gender-ambiguous';
 
+  // Línea de documento, solo si el paciente lo tiene registrado
+  const documentoHtml = p.numero_documento
+    ? `<div class="avatar-documento">
+         <i class="bi bi-person-vcard" style="font-size:.68rem"></i>
+         Doc: ${p.numero_documento}
+       </div>`
+    : '';
+
   return `
     <tr class="patient-row">
       <!-- Nombre con avatar de iniciales -->
@@ -148,6 +172,7 @@ function renderizarFilaPaciente(p) {
               <i class="bi bi-calendar3" style="color:var(--verde-primario);font-size:.7rem"></i>
               Ingresó: ${p.fecha_ingreso ? formatearFecha(p.fecha_ingreso) : 'No registrado'}
             </div>
+            ${documentoHtml}
           </div>
         </div>
       </td>
@@ -310,19 +335,34 @@ function renderizarPaginacion(respuesta) {
 }
 
 // -----------------------------------------------
-// FILTROS Y BÚSQUEDA
+// FILTROS, ORDEN Y BÚSQUEDA
 // -----------------------------------------------
 
-/** Aplica filtros activos y recarga desde página 1 */
+/** Aplica filtros y orden activos, y recarga desde página 1 */
 function filtrarPacientes() {
   cargarPacientes(1);
 }
 
-/** Limpia todos los filtros y recarga */
+/** Muestra u oculta el panel de filtros avanzados (edad y fecha de ingreso) */
+function toggleFiltrosAvanzados() {
+  const panel = document.getElementById('panel-filtros-avanzados');
+  const btn   = document.getElementById('btn-toggle-avanzados');
+  const abierto = panel.classList.toggle('abierto');
+  btn.innerHTML = abierto
+    ? '<i class="bi bi-sliders me-1"></i> Ocultar filtros'
+    : '<i class="bi bi-sliders me-1"></i> Más filtros';
+}
+
+/** Limpia todos los filtros (básicos y avanzados) y el orden, luego recarga */
 function limpiarFiltros() {
-  document.getElementById('input-busqueda').value = '';
-  document.getElementById('filtro-genero').value  = '';
-  document.getElementById('filtro-estado').value  = '';
+  document.getElementById('input-busqueda').value    = '';
+  document.getElementById('filtro-genero').value     = '';
+  document.getElementById('filtro-estado').value     = '';
+  document.getElementById('filtro-orden').value      = 'nombre:asc';
+  document.getElementById('filtro-edad-min').value   = '';
+  document.getElementById('filtro-edad-max').value   = '';
+  document.getElementById('filtro-fecha-desde').value = '';
+  document.getElementById('filtro-fecha-hasta').value = '';
   cargarPacientes(1);
 }
 
@@ -359,6 +399,7 @@ async function abrirModalEditarPaciente(id) {
     document.getElementById('p-nombre').value          = paciente.nombre_completo || '';
     document.getElementById('p-edad').value            = paciente.edad || '';
     document.getElementById('p-genero').value          = paciente.genero || '';
+    document.getElementById('p-documento').value       = paciente.numero_documento || '';
     document.getElementById('p-telefono').value        = paciente.telefono || '';
     document.getElementById('p-correo').value          = paciente.correo || '';
     document.getElementById('p-talla').value           = paciente.talla_metros || '';
@@ -390,6 +431,7 @@ async function guardarPaciente() {
     genero:           document.getElementById('p-genero').value,
     talla_metros:     parseFloat(document.getElementById('p-talla').value),
     peso_inicial_kg:  parseFloat(document.getElementById('p-peso').value),
+    numero_documento: document.getElementById('p-documento').value.trim()  || null,
     telefono:         document.getElementById('p-telefono').value.trim()   || null,
     correo:           document.getElementById('p-correo').value.trim()     || null,
     fecha_nacimiento: document.getElementById('p-fecha-nac').value         || null,
@@ -515,7 +557,7 @@ function mostrarErrorCampo(errorId, campoId) {
 /** Limpia todos los campos del formulario */
 function limpiarFormularioPaciente() {
   [
-    'p-nombre', 'p-edad', 'p-genero', 'p-fecha-nac', 'p-telefono',
+    'p-nombre', 'p-edad', 'p-genero', 'p-documento', 'p-fecha-nac', 'p-telefono',
     'p-correo', 'p-talla', 'p-peso', 'p-fecha-ingreso',
     'p-objetivos', 'p-condicion', 'p-observaciones'
   ].forEach(id => {
@@ -701,3 +743,11 @@ const inputBusqueda = document.getElementById('input-busqueda');
 if (inputBusqueda) {
   inputBusqueda.addEventListener('input', debounce(filtrarPacientes, 400));
 }
+
+// Vincular filtros de rango de edad/fecha con debounce de 500ms
+// (para no disparar una petición por cada dígito escrito)
+['filtro-edad-min', 'filtro-edad-max', 'filtro-fecha-desde', 'filtro-fecha-hasta']
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', debounce(filtrarPacientes, 500));
+  });

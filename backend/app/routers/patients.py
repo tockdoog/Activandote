@@ -14,11 +14,21 @@
 # codigo "LICENCIA_VENCIDA" (mismo formato que ya interpreta el frontend
 # en frontend/js/license.js). Ese código HTTP es EXCLUSIVO de licencia:
 # no reutilizarlo para ningún otro tipo de error de negocio.
+#
+# MEJORAS DE BÚSQUEDA/ORDEN (este archivo):
+#   - La búsqueda de texto ahora también revisa el número de documento.
+#   - Se agregan filtros por rango de edad y rango de fecha de ingreso.
+#   - Se agrega ordenamiento configurable (nombre, edad, fecha de ingreso,
+#     cantidad de evaluaciones, fecha de creación) en ambas direcciones.
+#   - El conteo de evaluaciones por paciente se resuelve con UNA sola
+#     consulta (subquery + outerjoin) en lugar de una consulta por cada
+#     paciente dentro de un loop (antes era un problema N+1).
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from typing import Optional
+from datetime import date
 import logging
 
 from app.database import get_db
@@ -61,6 +71,22 @@ router = APIRouter(
 )
 
 
+# -----------------------------------------------
+# Mapeo de columnas válidas para ordenamiento dinámico.
+# Se define fuera de la función para no reconstruirlo en cada petición.
+# La clave es el valor que recibe el query param "orden_por" desde el
+# frontend; el valor es la columna real del modelo que se usa en ORDER BY.
+# La columna de "evaluaciones" se resuelve más abajo porque depende del
+# subquery de conteo (no es una columna directa de Patient).
+# -----------------------------------------------
+_COLUMNAS_ORDEN_DIRECTAS = {
+    "nombre": Patient.nombre_completo,
+    "edad": Patient.edad,
+    "fecha_ingreso": Patient.fecha_ingreso,
+    "creacion": Patient.created_at,
+}
+
+
 @router.post("/", response_model=PatientResponse, status_code=status.HTTP_201_CREATED)
 async def crear_paciente(
     patient_data: PatientCreate,
@@ -93,57 +119,133 @@ async def crear_paciente(
 async def listar_pacientes(
     page: int = Query(1, ge=1, description="Número de página"),
     per_page: int = Query(20, ge=1, le=100, description="Registros por página"),
-    buscar: Optional[str] = Query(None, description="Búsqueda por nombre, teléfono o correo"),
+    buscar: Optional[str] = Query(
+        None, description="Búsqueda por nombre, teléfono, correo o número de documento"
+    ),
     estado: Optional[str] = Query(None, description="Filtrar por estado: activo, inactivo"),
     genero: Optional[str] = Query(None, description="Filtrar por género"),
+    edad_min: Optional[int] = Query(None, ge=0, le=120, description="Edad mínima"),
+    edad_max: Optional[int] = Query(None, ge=0, le=120, description="Edad máxima"),
+    fecha_desde: Optional[date] = Query(None, description="Fecha de ingreso desde (YYYY-MM-DD)"),
+    fecha_hasta: Optional[date] = Query(None, description="Fecha de ingreso hasta (YYYY-MM-DD)"),
+    orden_por: str = Query(
+        "nombre",
+        description="Columna de ordenamiento: nombre, edad, fecha_ingreso, evaluaciones, creacion"
+    ),
+    orden_direccion: str = Query("asc", description="Dirección de orden: asc o desc"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Lista todos los pacientes del entrenador con paginación y filtros avanzados.
-    Solo retorna pacientes del entrenador autenticado (aislamiento de datos).
+    Lista todos los pacientes del entrenador con paginación, filtros avanzados
+    y ordenamiento configurable. Solo retorna pacientes del entrenador
+    autenticado (aislamiento de datos).
     """
-    # Consulta base filtrada por el entrenador actual
-    query = db.query(Patient).filter(
+    # -----------------------------------------------
+    # Consulta base: filtrada por el entrenador actual y solo activos
+    # -----------------------------------------------
+    base_query = db.query(Patient).filter(
         Patient.trainer_id == current_user.id,
         Patient.is_active == True
     )
 
-    # Aplicar filtro de búsqueda por texto en múltiples campos
+    # Búsqueda de texto libre en nombre, teléfono, correo y documento
     if buscar:
         termino = f"%{buscar.strip()}%"
-        query = query.filter(
+        base_query = base_query.filter(
             or_(
                 Patient.nombre_completo.ilike(termino),
                 Patient.telefono.ilike(termino),
-                Patient.correo.ilike(termino)
+                Patient.correo.ilike(termino),
+                Patient.numero_documento.ilike(termino)
             )
         )
 
     # Filtro por estado del paciente
     if estado:
-        query = query.filter(Patient.estado == estado)
+        base_query = base_query.filter(Patient.estado == estado)
 
     # Filtro por género
     if genero:
-        query = query.filter(Patient.genero == genero)
+        base_query = base_query.filter(Patient.genero == genero)
 
-    # Contar total para paginación
-    total = query.count()
-    total_pages = (total + per_page - 1) // per_page
+    # Filtro por rango de edad
+    if edad_min is not None:
+        base_query = base_query.filter(Patient.edad >= edad_min)
+    if edad_max is not None:
+        base_query = base_query.filter(Patient.edad <= edad_max)
 
-    # Aplicar paginación y ordenar por nombre
-    pacientes = query.order_by(Patient.nombre_completo).offset(
-        (page - 1) * per_page
-    ).limit(per_page).all()
+    # Filtro por rango de fecha de ingreso
+    if fecha_desde is not None:
+        base_query = base_query.filter(Patient.fecha_ingreso >= fecha_desde)
+    if fecha_hasta is not None:
+        base_query = base_query.filter(Patient.fecha_ingreso <= fecha_hasta)
 
-    # Construir respuesta con conteo de evaluaciones por paciente
+    # Contar total para paginación (sobre la consulta ya filtrada, sin el join
+    # de evaluaciones, que no afecta la cantidad de pacientes)
+    total = base_query.count()
+    total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+
+    # -----------------------------------------------
+    # Subquery de conteo de evaluaciones por paciente.
+    # Evita el problema N+1: antes se consultaba una vez por cada paciente
+    # dentro de un loop; ahora es una sola consulta agregada que se une
+    # (outerjoin) a la consulta principal.
+    # -----------------------------------------------
+    eval_count_subq = (
+        db.query(
+            Evaluation.patient_id.label("patient_id"),
+            func.count(Evaluation.id).label("total_evals")
+        )
+        .group_by(Evaluation.patient_id)
+        .subquery()
+    )
+
+    total_evals_col = func.coalesce(eval_count_subq.c.total_evals, 0)
+
+    query_con_evals = (
+        base_query
+        .outerjoin(eval_count_subq, Patient.id == eval_count_subq.c.patient_id)
+        .add_columns(total_evals_col.label("total_evaluaciones"))
+    )
+
+    # -----------------------------------------------
+    # Ordenamiento dinámico y seguro.
+    # Solo se aceptan valores conocidos; cualquier valor inválido cae al
+    # ordenamiento por defecto (nombre ascendente) en lugar de romper la
+    # petición, para no afectar clientes antiguos del frontend.
+    # -----------------------------------------------
+    direccion = orden_direccion.lower().strip()
+    if direccion not in ("asc", "desc"):
+        direccion = "asc"
+
+    if orden_por == "evaluaciones":
+        columna = total_evals_col
+    else:
+        columna = _COLUMNAS_ORDEN_DIRECTAS.get(orden_por, Patient.nombre_completo)
+
+    orden_aplicado = columna.desc() if direccion == "desc" else columna.asc()
+
+    # Las fechas de ingreso pueden ser nulas: se envían siempre al final,
+    # sin importar la dirección, para no romper la lectura del listado.
+    if orden_por == "fecha_ingreso":
+        orden_aplicado = orden_aplicado.nullslast()
+
+    # Orden secundario por nombre para desempatar resultados iguales
+    # (por ejemplo, varios pacientes con la misma edad)
+    resultados = (
+        query_con_evals
+        .order_by(orden_aplicado, Patient.nombre_completo.asc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    # Construir la respuesta a partir de las tuplas (Patient, total_evaluaciones)
     items = []
-    for paciente in pacientes:
+    for paciente, total_evaluaciones in resultados:
         response = PatientResponse.model_validate(paciente)
-        response.total_evaluaciones = db.query(Evaluation).filter(
-            Evaluation.patient_id == paciente.id
-        ).count()
+        response.total_evaluaciones = total_evaluaciones
         items.append(response)
 
     return PaginatedResponse(
