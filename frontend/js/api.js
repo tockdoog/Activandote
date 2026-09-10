@@ -136,17 +136,32 @@ class ApiClient {
 
   /**
    * Construye un mensaje de error legible a partir de la respuesta del backend.
-   * Si es un error de validación (422) con detalle por campo (formato
-   * {detalle, errores: [{campo, mensaje}, ...]} generado por el manejador
-   * global de FastAPI), muestra el campo y el motivo exactos en vez del
-   * mensaje genérico "Error de validación".
+   *
+   * Soporta tres formatos posibles de error que el backend puede enviar:
+   *  1) Validación 422 con detalle por campo (formato generado por el
+   *     manejador global de FastAPI):
+   *     { detalle: "...", errores: [{ campo, mensaje }, ...] }
+   *  2) Errores de negocio estructurados (licencia vencida, límite de
+   *     pacientes, etc.), donde "detail" es un OBJETO con al menos "mensaje":
+   *     { detail: { codigo: "LIMITE_PACIENTES", mensaje: "...", ... } }
+   *  3) Errores simples de FastAPI/HTTPException, donde "detail" es un
+   *     STRING plano:
+   *     { detail: "Credenciales incorrectas" }
    */
   _extraerMensajeError(datos, status) {
+    // Caso 1: errores de validación por campo (422)
     if (datos?.errores && Array.isArray(datos.errores) && datos.errores.length > 0) {
       return datos.errores
         .map(err => `${(err.campo || '').replace('body → ', '')}: ${err.mensaje}`)
         .join(' | ');
     }
+
+    // Caso 2: "detail" estructurado como objeto -> usar su campo "mensaje"
+    if (datos?.detail && typeof datos.detail === 'object' && datos.detail.mensaje) {
+      return datos.detail.mensaje;
+    }
+
+    // Caso 3: "detail"/"detalle" como texto plano, o mensaje genérico por código HTTP
     return datos?.detail || datos?.detalle || this._mensajeError(status);
   }
 
@@ -155,6 +170,7 @@ class ApiClient {
     const mensajes = {
       400: 'Solicitud incorrecta',
       401: 'Credenciales incorrectas',
+      402: 'Se requiere renovar la licencia',
       403: 'Acceso denegado',
       404: 'Recurso no encontrado',
       409: 'El registro ya existe',

@@ -3,6 +3,13 @@
 // Se incluye en todas las páginas protegidas DESPUÉS de api.js.
 // Gestiona: verificación al cargar, banner de advertencia, countdown en tiempo real
 // y verificación periódica en segundo plano.
+//
+// IMPORTANTE: este módulo SOLO debe reaccionar a bloqueos de LICENCIA MENSUAL.
+// El backend puede responder 402/403 por otros motivos de negocio (por ejemplo,
+// el límite de pacientes del plan, ver backend/app/routers/patients.py). Por eso
+// nunca se redirige a license-expired.html solo por ver el status HTTP: siempre
+// se confirma que el error traiga el código "LICENCIA_VENCIDA" enviado por
+// app/licensing/service.py -> verificar_acceso().
 
 // -----------------------------------------------
 // Configuración del módulo
@@ -13,10 +20,29 @@ const LICENSE_CONFIG = {
 
   // Cada cuántos minutos re-verificar con el servidor en segundo plano
   INTERVALO_VERIFICACION_MINUTOS: 10,
+
+  // Código de error que identifica, sin ambigüedad, un bloqueo por licencia
+  CODIGO_LICENCIA_VENCIDA: 'LICENCIA_VENCIDA',
 };
 
 // Variable global para el intervalo del countdown del banner
 let _countdownInterval = null;
+
+
+// -----------------------------------------------
+// Utilidad compartida: determina si un error de la API corresponde
+// específicamente a licencia vencida (y no a otro 402/403 de negocio).
+// -----------------------------------------------
+
+/**
+ * @param {Error} error - Error lanzado por ApiClient (trae .status y .datos)
+ * @returns {boolean} true si el error es por licencia vencida
+ */
+function _esErrorDeLicenciaVencida(error) {
+  if (!error || error.status !== 402) return false;
+  const codigo = error.datos?.detail?.codigo;
+  return codigo === LICENSE_CONFIG.CODIGO_LICENCIA_VENCIDA;
+}
 
 
 // -----------------------------------------------
@@ -60,12 +86,15 @@ async function verificarLicencia() {
     }
 
   } catch (error) {
-    // Error 402 explícito del servidor: bloquear de inmediato
-    if (error.status === 402) {
+    // Solo bloquear si el error es específicamente licencia vencida.
+    // Cualquier otro 402/403 (p. ej. límite de pacientes) NO debe
+    // redirigir a esta pantalla: /licensing/estado nunca debería
+    // devolver ese tipo de error, pero se valida igual por seguridad.
+    if (_esErrorDeLicenciaVencida(error)) {
       window.location.href = 'license-expired.html';
       return;
     }
-    // Otros errores de red: no bloquear, solo loguear
+    // Otros errores de red o del servidor: no bloquear, solo loguear
     console.warn('[FitPro License] No se pudo verificar la licencia:', error.message);
   }
 }
@@ -288,8 +317,8 @@ function iniciarVerificacionPeriodica() {
       }
 
     } catch (error) {
-      // 402 explícito: bloquear inmediatamente
-      if (error.status === 402) {
+      // Solo redirigir ante un error específico de licencia vencida
+      if (_esErrorDeLicenciaVencida(error)) {
         window.location.href = 'license-expired.html';
       }
       // Otros errores: ignorar silenciosamente
@@ -299,10 +328,14 @@ function iniciarVerificacionPeriodica() {
 
 
 // -----------------------------------------------
-// INTERCEPTOR GLOBAL DE ERROR 402
-// Captura respuestas 402 de cualquier endpoint y redirige al bloqueo
+// INTERCEPTOR GLOBAL DE ERROR DE LICENCIA VENCIDA
+// Captura, en CUALQUIER endpoint de la app, el error específico de licencia
+// vencida y redirige al bloqueo. Ya NO reacciona a todo status 402: valida
+// el código de error para no confundirse con otros usos de ese status
+// (por ejemplo, el límite de pacientes del plan, que responde 403 con su
+// propio código "LIMITE_PACIENTES" y debe mostrarse como un toast normal).
 // -----------------------------------------------
-(function interceptar402() {
+(function interceptarLicenciaVencida() {
   // Verificar que ApiClient existe antes de extenderlo
   if (typeof ApiClient === 'undefined') return;
 
@@ -310,15 +343,21 @@ function iniciarVerificacionPeriodica() {
   if (!_original) return;
 
   ApiClient.prototype._procesarRespuesta = async function(respuesta) {
-    if (respuesta.status === 402) {
-      const pagina = window.location.pathname.split('/').pop();
-      // No redirigir si ya estamos en la página de bloqueo (evita bucle)
-      if (pagina !== 'license-expired.html') {
-        window.location.href = 'license-expired.html';
-        return;
+    // Dejar que el flujo normal procese la respuesta y construya el error
+    // (con .status y .datos ya parseados) antes de decidir si redirigir.
+    try {
+      return await _original.call(this, respuesta);
+    } catch (error) {
+      if (_esErrorDeLicenciaVencida(error)) {
+        const pagina = window.location.pathname.split('/').pop();
+        // No redirigir si ya estamos en la página de bloqueo (evita bucle)
+        if (pagina !== 'license-expired.html') {
+          window.location.href = 'license-expired.html';
+          return;
+        }
       }
+      throw error;
     }
-    return _original.call(this, respuesta);
   };
 })();
 

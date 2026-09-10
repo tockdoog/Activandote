@@ -1,10 +1,24 @@
 # backend/app/routers/patients.py
-# Endpoints CRUD completos para gestión de pacientes del entrenador autenticado
+# Endpoints CRUD completos para gestión de pacientes del entrenador autenticado.
+#
+# CONTROL DE ACCESO: el ÚNICO mecanismo de bloqueo de esta app es la licencia
+# mensual (ver app/licensing/service.py). NO existe límite de cantidad de
+# pacientes por plan — se eliminó intencionalmente esa validación.
+#
+# La licencia se valida aquí, en el servidor, y no solo en el frontend:
+# si un cliente llama a la API directamente (curl, Postman, etc.) sin pasar
+# por la UI, igual debe quedar bloqueado si la licencia está vencida. Por eso
+# el router completo depende de _verificar_licencia_activa().
+#
+# Si la licencia está vencida, se responde 402 Payment Required con
+# codigo "LICENCIA_VENCIDA" (mismo formato que ya interpreta el frontend
+# en frontend/js/license.js). Ese código HTTP es EXCLUSIVO de licencia:
+# no reutilizarlo para ningún otro tipo de error de negocio.
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
-from typing import Optional, List
+from sqlalchemy import or_
+from typing import Optional
 import logging
 
 from app.database import get_db
@@ -13,12 +27,38 @@ from app.models.patient import Patient
 from app.models.evaluation import Evaluation
 from app.schemas import PatientCreate, PatientUpdate, PatientResponse, PaginatedResponse
 from app.utils.security import get_current_active_user
+from app.licensing.service import LicenseService
+
+logger = logging.getLogger(__name__)
+
+
+# -----------------------------------------------
+# Dependencia de licencia — se aplica a TODO el router.
+# Reutiliza get_current_active_user (FastAPI cachea el resultado de la
+# dependencia dentro de la misma petición, no se consulta el usuario dos veces).
+# -----------------------------------------------
+def _verificar_licencia_activa(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """
+    Bloquea la petición con 402 si la licencia mensual del entrenador
+    autenticado está vencida. Es la única puerta de acceso de pago del
+    sistema; no hay límites de plan por cantidad de pacientes.
+    """
+    LicenseService.verificar_acceso(db, current_user.id)
+
 
 # -----------------------------------------------
 # Configuración del router de pacientes
+# dependencies=[...] aplica la verificación de licencia a TODOS los
+# endpoints de este router automáticamente, sin repetirla en cada función.
 # -----------------------------------------------
-router = APIRouter(prefix="/patients", tags=["Pacientes"])
-logger = logging.getLogger(__name__)
+router = APIRouter(
+    prefix="/patients",
+    tags=["Pacientes"],
+    dependencies=[Depends(_verificar_licencia_activa)],
+)
 
 
 @router.post("/", response_model=PatientResponse, status_code=status.HTTP_201_CREATED)
@@ -29,24 +69,9 @@ async def crear_paciente(
 ):
     """
     Registra un nuevo paciente asociado al entrenador autenticado.
-    Verifica límite de pacientes según plan de suscripción.
+    Sin límite de cantidad: el único control de acceso es la licencia mensual,
+    ya verificada por la dependencia del router antes de llegar aquí.
     """
-    # Verificar límite de pacientes según plan
-    total_pacientes = db.query(Patient).filter(
-        Patient.trainer_id == current_user.id,
-        Patient.is_active == True
-    ).count()
-
-    limites = {"free": 10, "pro": 100, "enterprise": 99999}
-    limite = limites.get(current_user.plan.value, 10)
-
-    if total_pacientes >= limite:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"Límite de pacientes alcanzado ({limite}) para el plan {current_user.plan.value}. Actualice su plan."
-        )
-
-    # Crear el nuevo paciente vinculado al entrenador
     nuevo_paciente = Patient(
         trainer_id=current_user.id,
         **patient_data.model_dump(exclude_none=False)
@@ -58,7 +83,7 @@ async def crear_paciente(
 
     logger.info(f"Paciente creado: {nuevo_paciente.id} por trainer: {current_user.id}")
 
-    # Añadir conteo de evaluaciones al response
+    # Añadir conteo de evaluaciones al response (paciente recién creado: 0)
     response = PatientResponse.model_validate(nuevo_paciente)
     response.total_evaluaciones = 0
     return response
@@ -159,11 +184,11 @@ async def actualizar_paciente(
 ):
     """
     Actualiza los datos de un paciente existente (actualización parcial).
-    Solo actualiza los campos proporcionados.
+    Solo actualiza los campos proporcionados en el request.
     """
     paciente = _get_patient_or_404(patient_id, current_user.id, db)
 
-    # Actualizar solo los campos que vienen en el request (PATCH semántico)
+    # Actualizar solo los campos que vienen en el request (semántica PATCH)
     update_data = patient_data.model_dump(exclude_unset=True, exclude_none=True)
     for campo, valor in update_data.items():
         setattr(paciente, campo, valor)
@@ -188,7 +213,7 @@ async def eliminar_paciente(
 ):
     """
     Eliminación lógica del paciente (soft delete).
-    No elimina físicamente los datos para preservar historial.
+    No elimina físicamente los datos para preservar el historial clínico.
     """
     paciente = _get_patient_or_404(patient_id, current_user.id, db)
 
@@ -223,7 +248,7 @@ async def obtener_evaluaciones_paciente(
 def _get_patient_or_404(patient_id: int, trainer_id: int, db: Session) -> Patient:
     """
     Función auxiliar para obtener un paciente y verificar propiedad.
-    Lanza 404 si no existe o 403 si no pertenece al entrenador.
+    Lanza 404 si no existe o 403 si no pertenece al entrenador autenticado.
     """
     paciente = db.query(Patient).filter(
         Patient.id == patient_id,
